@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>全局聚光灯效果</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      /* 使用 @property 注册 --size，让其支持平滑过渡动画 */
+      @property --size {
+        syntax: "<length>";
+        inherits: false;
+        initial-value: 0px; /* 初始大小为0，即完全黑暗 */
+      }
+
+      body {
+        background-color: #111827; /* 深色背景 */
+        color: #d1d5db; /* 默认文字颜色，在暗处几乎不可见 */
+      }
+
+      body.grabbing,
+      body.grabbing * {
+        cursor: grabbing !important; /* 拖拽时改变全局鼠标样式 */
+      }
+
+      #spotlight-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        pointer-events: none;
+        background: radial-gradient(
+          circle var(--size) at var(--x) var(--y),
+          rgba(0, 0, 0, 0) 0%,
+          rgba(0, 0, 0, 0.95) 100%
+        );
+        transition: --size 0.7s cubic-bezier(0.25, 1, 0.5, 1),
+          opacity 0.7s cubic-bezier(0.25, 1, 0.5, 1);
+        opacity: 1;
+      }
+
+      #spotlight-overlay.fully-lit {
+        opacity: 0;
+      }
+
+      /* [关键改动] 修改了开关的位置 */
+      #light-switch {
+        position: fixed;
+        top: 1rem; /* 16px */
+        right: 1.5rem; /* 24px */
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        cursor: grab;
+      }
+
+      #light-bulb {
+        width: 32px;
+        height: 32px;
+        color: #4b5563;
+        transition: color 0.5s ease;
+      }
+
+      #light-bulb.on {
+        color: #f59e0b;
+        filter: drop-shadow(0 0 10px #f59e0b);
+      }
+
+      #pull-cord {
+        width: 2px;
+        height: 40px;
+        background-color: #4b5563;
+        margin: 0 auto;
+        transition: height 0.1s ease-out;
+      }
+
+      #pull-handle {
+        width: 8px;
+        height: 20px;
+        background-color: #4b5563;
+        border-radius: 4px;
+        margin: 0 auto;
+      }
+    </style>
+  </head>
+  <body
+    class="flex items-center justify-center min-h-screen font-sans overflow-hidden"
+  >
+    <div id="light-switch" title="拖动拉绳开关灯">
+      <svg
+        id="light-bulb"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="currentColor"
+        viewBox="0 0 16 16"
+      >
+        <path
+          d="M2 6a6 6 0 1 1 12 0A6 6 0 0 1 2 6zm6-5a5 5 0 0 0-3.479 8.592c.243.297.243.74 0 1.037a3.5 3.5 0 0 0-1.127 2.552H12.6a3.5 3.5 0 0 0-1.127-2.552c-.243-.297-.243-.74 0-1.037A5 5 0 0 0 8 1z"
+        />
+      </svg>
+      <div id="pull-cord-assembly">
+        <div id="pull-cord"></div>
+        <div id="pull-handle"></div>
+      </div>
+    </div>
+
+    <div id="spotlight-overlay"></div>
+
+    <div class="text-center p-8">
+      <h1 class="text-4xl sm:text-5xl font-bold mb-4">欢迎来到黑夜模式</h1>
+      <p class="text-xl text-gray-400 mb-8">你的鼠标是这里唯一的光源</p>
+
+      <div
+        class="w-full max-w-2xl mx-auto rounded-lg overflow-hidden shadow-2xl"
+      >
+        <img
+          src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=2070&auto=format&fit=crop"
+          alt="风景图片"
+          class="w-full h-full object-cover"
+        />
+      </div>
+      <p class="mt-8 text-lg text-gray-500">试着移动鼠标，照亮不同的区域。</p>
+    </div>
+
+    <script>
+      const overlay = document.getElementById("spotlight-overlay");
+      const lightSwitch = document.getElementById("light-switch");
+      const lightBulb = document.getElementById("light-bulb");
+      const pullCord = document.getElementById("pull-cord");
+
+      let isLightOn = true; // [关键改动] 初始状态为开灯
+      const spotlightSize = "250px";
+
+      let isDragging = false;
+      let startY = 0;
+      let hasToggled = false;
+      const dragThreshold = 40;
+      const initialCordHeight = 40;
+
+      lightSwitch.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        isDragging = true;
+        hasToggled = false;
+        startY = e.clientY;
+        document.body.classList.add("grabbing");
+        pullCord.style.transition = "none";
+      });
+
+      window.addEventListener("mousemove", (e) => {
+        if (isDragging) {
+          const deltaY = e.clientY - startY;
+          const pullDistance = Math.max(0, deltaY);
+          pullCord.style.height = `${initialCordHeight + pullDistance}px`;
+
+          if (pullDistance > dragThreshold && !hasToggled) {
+            toggleLight();
+            hasToggled = true;
+          }
+        }
+      });
+
+      window.addEventListener("mouseup", () => {
+        if (!isDragging) return;
+        isDragging = false;
+        document.body.classList.remove("grabbing");
+        pullCord.style.transition = "height 0.1s ease-out";
+        pullCord.style.height = `${initialCordHeight}px`;
+      });
+
+      function toggleLight() {
+        isLightOn = !isLightOn;
+
+        if (isLightOn) {
+          // 开灯 -> 页面全亮
+          overlay.classList.add("fully-lit");
+          lightBulb.classList.add("on");
+        } else {
+          // 关灯 -> 进入聚光灯模式
+          overlay.classList.remove("fully-lit");
+          overlay.style.setProperty("--size", spotlightSize);
+          lightBulb.classList.remove("on");
+        }
+      }
+
+      window.addEventListener("mousemove", (e) => {
+        window.requestAnimationFrame(() => {
+          overlay.style.setProperty("--x", `${e.clientX}px`);
+          overlay.style.setProperty("--y", `${e.clientY}px`);
+        });
+      });
+
+      // [关键改动] 页面加载时，立即设置开灯状态
+      overlay.classList.add("fully-lit");
+      lightBulb.classList.add("on");
+    </script>
+  </body>
+</html>
