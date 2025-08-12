@@ -1,0 +1,151 @@
+body {
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+        }
+        .holiday-card-container {
+            /* Background is now handled by the .background-blur element */
+        }
+        .background-blur {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, #001a33, #003366, #336699);
+            filter: blur(4px);
+            transform: scale(1.1); /* Prevents hard blurred edges */
+            z-index: 0;
+            transition: background 0.8s ease-in-out;
+        }
+        .title-font {
+            font-family: 'Pacifico', cursive;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            animation: fall linear infinite;
+        }
+        @keyframes fall {
+            0% { transform: translateY(-10vh) rotate(0deg); }
+            100% { transform: translateY(110vh) rotate(360deg); }
+        }
+        .sticker {
+            cursor: grab;
+            transition: transform 0.2s ease-in-out;
+            user-select: none; /* Prevent text selection */
+            -webkit-user-drag: element; /* Correct dragging behavior */
+        }
+        .sticker:active {
+            cursor: grabbing;
+        }
+        .scene-item {
+            position: absolute;
+            cursor: grab;
+            transition: transform 0.2s ease-in-out, filter 0.2s ease-in-out;
+        }
+        /* Style for items being dragged */
+        .scene-item.dragging {
+            transform: scale(1.1) rotate(3deg);
+            filter: drop-shadow(0 10px 8px rgba(0,0,0,0.2));
+            z-index: 1000;
+        }
+        /* New style for items shrinking over trash */
+        .scene-item.dragging.over-trash {
+            transform: scale(0.3);
+        }
+        /* Keyframes for the shake animation */
+        @keyframes shake {
+          10%, 90% { transform: translate3d(-1px, 0, 0); }
+          20%, 80% { transform: translate3d(2px, 0, 0); }
+          30%, 50%, 70% { transform: translate3d(-3px, 0, 0); }
+          40%, 60% { transform: translate3d(3px, 0, 0); }
+        }
+        /* Class to apply the shake animation */
+        .scene-item.shaking {
+          animation: shake 0.5s ease-in-out;
+        }
+        /* Styles for the shatter effect */
+        .shard {
+            position: absolute;
+            border-radius: 2px;
+            animation: shatter 0.8s ease-out forwards;
+        }
+        @keyframes shatter {
+            0% {
+                transform: translate(0, 0) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(var(--tx), var(--ty)) rotate(var(--rot));
+                opacity: 0;
+            }
+        }
+        .palette {
+            background: rgba(10, 25, 47, 0.5); /* Dark navy transparent background */
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(100, 116, 139, 0.5); /* Slate gray border */
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            justify-content: flex-start;
+            cursor: grab;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .palette.active {
+            cursor: grabbing;
+        }
+        .palette::-webkit-scrollbar {
+          display: none;
+        }
+        .ground {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 20%;
+            background: #f0f4f7;
+            border-top: 5px solid #dde4e7;
+            clip-path: ellipse(100% 100% at 50% 100%);
+            transition: background 0.8s ease-in-out, border-top 0.8s ease-in-out;
+        }
+        .control-btn {
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        .control-btn:hover {
+            transform: scale(1.05);
+        }
+        .season-btn {
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        .season-btn.active {
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.7);
+        }
+        #generate-btn { background-color: #2E7D32; }
+        #reshuffle-btn { background-color: #FFC107; }
+        #reset-btn { background-color: #D32F2F; }
+        #clear-all-btn { background-color: #1976D2; }
+        #generate-btn:hover { background-color: #388E3C; }
+        #reshuffle-btn:hover { background-color: #FFCA28; }
+        #reset-btn:hover { background-color: #E53935; }
+        #clear-all-btn:hover { background-color: #1565C0; }
+        #trash-can {
+            position: absolute;
+            bottom: 1rem;
+            right: 1rem;
+            width: 60px;
+            height: 60px;
+            background-color: rgba(51, 51, 51, 0.5);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s, background-color 0.3s;
+            z-index: 20;
+        }
+        #trash-can.trash-active {
+            background-color: rgba(211, 47, 47, 0.7);
+            transform: scale(1.2);
+        }

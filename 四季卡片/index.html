@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Holiday Card</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-gray-900 flex items-center justify-center h-screen">
+
+    <div id="card-container" class="relative w-full h-full max-w-4xl max-h-[700px] shadow-2xl rounded-lg overflow-hidden">
+        
+        <div id="background-blur" class="background-blur"></div>
+
+        <!-- Particle Container -->
+        <div id="particle-container" class="absolute top-0 left-0 w-full h-full pointer-events-none z-10"></div>
+
+        <!-- Season Buttons -->
+        <div class="absolute top-4 left-4 z-20 flex gap-2">
+            <button class="season-btn p-2 rounded-full bg-pink-300/70" data-season="spring">🌸</button>
+            <button class="season-btn p-2 rounded-full bg-yellow-300/70" data-season="summer">☀️</button>
+            <button class="season-btn p-2 rounded-full bg-orange-400/70" data-season="autumn">🍁</button>
+            <button class="season-btn p-2 rounded-full bg-blue-300/70 active" data-season="winter">❄️</button>
+        </div>
+
+        <!-- Holiday Message -->
+        <div class="absolute top-5 left-1/2 -translate-x-1/2 z-20 text-center">
+            <h1 id="title-text" class="title-font text-4xl md:text-5xl text-white">Happy Winter!</h1>
+        </div>
+
+        <!-- Main Scene for Dropping Items -->
+        <div id="scene" class="relative w-full h-full z-10">
+            <!-- Snowy Ground -->
+            <div id="ground" class="ground z-0"></div>
+            <!-- Items will be dynamically added here -->
+        </div>
+
+        <!-- Sticker Palette & Controls -->
+        <div class="absolute bottom-4 inset-x-0 flex flex-col items-center gap-4 z-30">
+            <div class="w-full max-w-xs sm:max-w-sm md:max-w-md">
+                <div class="palette flex items-center gap-3 p-3 rounded-full">
+                    <!-- Palette items will be dynamically added here -->
+                </div>
+            </div>
+             <!-- Control Buttons -->
+            <div class="flex gap-4">
+                <button id="generate-btn" class="control-btn text-white font-semibold py-2 px-4 rounded-full">Generate</button>
+                <button id="reshuffle-btn" class="control-btn text-white font-semibold py-2 px-4 rounded-full">Reshuffle</button>
+                <button id="reset-btn" class="control-btn text-white font-semibold py-2 px-4 rounded-full">Reset</button>
+                <button id="clear-all-btn" class="control-btn text-white font-semibold py-2 px-4 rounded-full">Clear All</button>
+            </div>
+        </div>
+        
+        <!-- Trash Can -->
+        <div id="trash-can">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+        </div>
+
+        <!-- Sound Toggle Button -->
+        <button id="sound-toggle" class="absolute top-4 right-4 z-30 p-2 rounded-full bg-white/30 text-white hover:bg-white/50 transition">
+            <svg id="sound-on-icon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+            <svg id="sound-off-icon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
+        </button>
+
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
