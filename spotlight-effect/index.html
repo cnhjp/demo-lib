@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/spotlight-effect/">
+    <title>全局聚光灯效果</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body
+    class="flex items-center justify-center min-h-screen font-sans overflow-hidden"
+  >
+    <div id="light-switch" title="拖动拉绳开关灯">
+      <svg
+        id="light-bulb"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="currentColor"
+        viewBox="0 0 16 16"
+      >
+        <path
+          d="M2 6a6 6 0 1 1 12 0A6 6 0 0 1 2 6zm6-5a5 5 0 0 0-3.479 8.592c.243.297.243.74 0 1.037a3.5 3.5 0 0 0-1.127 2.552H12.6a3.5 3.5 0 0 0-1.127-2.552c-.243-.297-.243-.74 0-1.037A5 5 0 0 0 8 1z"
+        />
+      </svg>
+      <div id="pull-cord-assembly">
+        <div id="pull-cord"></div>
+        <div id="pull-handle"></div>
+      </div>
+    </div>
+
+    <div id="spotlight-overlay"></div>
+
+    <div class="text-center p-8">
+      <h1 class="text-4xl sm:text-5xl font-bold mb-4">欢迎来到黑夜模式</h1>
+      <p class="text-xl text-gray-400 mb-8">你的鼠标是这里唯一的光源</p>
+
+      <div
+        class="w-full max-w-2xl mx-auto rounded-lg overflow-hidden shadow-2xl"
+      >
+        <img
+          src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=2070&auto=format&fit=crop"
+          alt="风景图片"
+          class="w-full h-full object-cover"
+        />
+      </div>
+      <p class="mt-8 text-lg text-gray-500">试着移动鼠标，照亮不同的区域。</p>
+    </div>
+
+    <script src="script.js" defer></script>
+  </body>
+</html>
