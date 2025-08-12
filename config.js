@@ -23,4 +23,13 @@ const demos = [
     link: "/seasons-card",
     buttonClass: "bg-emerald-500 hover:bg-emerald-600",
   },
+  {
+    title: "迷宫生成器",
+    description:
+      "一个功能丰富的迷宫游戏。不仅有经典的迷宫逃脱，更有刺激的“夺宝”模式：收集钥匙、躲避守卫、识破陷阱。支持自定义尺寸、迷雾模式、答案演示和种子生成，挑战你的智慧与反应！",
+    imageUrl: "/maze/preview.png",
+    altText: "迷宫生成器效果预览图",
+    link: "/maze",
+    buttonClass: "bg-sky-500 hover:bg-sky-600",
+  },
 ];
