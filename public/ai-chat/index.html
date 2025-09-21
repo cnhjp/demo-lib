@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat - 全程打字机效果</title>
+    <style>
+        /* CSS样式与上一版完全相同，此处省略 */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; flex-direction: column; padding: 20px; }
+        .chat-container { max-width: 800px; width: 100%; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); display: flex; flex-direction: column; height: 85vh; }
+        .chat-header { padding: 20px; background: #f8f9fa; border-bottom: 1px solid #e9ecef; border-radius: 10px 10px 0 0; text-align: center; }
+        .chat-header h1 { color: #333; font-size: 1.5rem; }
+        .chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .message { max-width: 80%; padding: 12px 16px; border-radius: 18px; line-height: 1.5; position: relative; animation: fadeIn 0.3s ease-out; word-wrap: break-word; white-space: pre-wrap; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .user-message { align-self: flex-end; background: #007bff; color: white; border-bottom-right-radius: 5px; }
+        .ai-message { align-self: flex-start; background: #f1f3f4; color: #333; border-bottom-left-radius: 5px; }
+        .chat-input { display: flex; padding: 20px; border-top: 1px solid #e9ecef; background: #f8f9fa; border-radius: 0 0 10px 10px; }
+        .chat-input input { flex: 1; padding: 12px 15px; border: 1px solid #ddd; border-radius: 20px; outline: none; font-size: 1rem; transition: border-color 0.3s; }
+        .chat-input input:focus { border-color: #007bff; box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25); }
+        .chat-input button { margin-left: 10px; padding: 12px 20px; background: #007bff; color: white; border: none; border-radius: 20px; cursor: pointer; font-size: 1rem; transition: background 0.3s; }
+        .chat-input button:hover { background: #0069d9; }
+        .chat-input button:disabled { background: #6c757d; cursor: not-allowed; }
+        .thinking-component { align-self: flex-start; background: #f8f9fa; border: 1px solid #e9ecef; border-bottom-left-radius: 5px; color: #6c757d; }
+        .thinking-component .thinking-header { font-weight: bold; padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid #dee2e6; display: flex; align-items: center; }
+        .thinking-component .thinking-steps p { margin: 0 0 5px 0; font-size: 0.9rem; animation: fadeInStep 0.5s ease-out; }
+        @keyframes fadeInStep { from { opacity: 0; } to { opacity: 1; } }
+        .cursor { display: inline-block; width: 10px; height: 1.2rem; background-color: #333; animation: blink 0.7s infinite; margin-left: 3px; vertical-align: text-bottom; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        .typing-indicator { display: inline-block; margin-left: 8px; }
+        .typing-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #6c757d; margin: 0 2px; animation: typing 1.4s infinite ease-in-out both; }
+        .typing-dot:nth-child(1) { animation-delay: 0s; } .typing-dot:nth-child(2) { animation-delay: 0.2s; } .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header"><h1>AI 助手</h1></div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="message ai-message">你好！我是AI助手，有什么我可以帮你的吗？</div>
+        </div>
+        <div class="chat-input">
+            <input type="text" id="messageInput" placeholder="输入你的消息..." autocomplete="off" />
+            <button id="sendButton">发送</button>
+        </div>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+
+        function scrollToBottom() { chatMessages.scrollTop = chatMessages.scrollHeight; }
+
+        // ========= 改造: typewriterEffect 返回一个 Promise =========
+        function typewriterEffect(element, text) {
+            return new Promise(resolve => {
+                let i = 0;
+                element.innerHTML = ""; // 清空元素
+                const cursor = document.createElement('span');
+                cursor.className = 'cursor';
+                element.appendChild(cursor);
+
+                function type() {
+                    if (i < text.length) {
+                        const charNode = document.createTextNode(text.charAt(i));
+                        element.insertBefore(charNode, cursor);
+                        i++;
+                        scrollToBottom();
+                        setTimeout(type, 35); // 打字速度
+                    } else {
+                        cursor.remove(); // 打字结束后移除光标
+                        resolve(); // Promise 完成
+                    }
+                }
+                type();
+            });
+        }
+
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // 创建用户消息
+            const userMessage = document.createElement('div');
+            userMessage.className = 'message user-message';
+            userMessage.textContent = message;
+            chatMessages.appendChild(userMessage);
+            scrollToBottom();
+            messageInput.value = '';
+            
+            sendButton.disabled = true;
+            messageInput.disabled = true;
+            sendButton.textContent = '思考中...';
+            
+            let thinkingComponent = null;
+            let thinkingStepsContainer = null;
+            
+            try {
+                const response = await fetch('/api/ai-chat/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+
+                if (!response.ok || !response.body) throw new Error(`服务器错误: ${response.statusText}`);
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    let boundary = buffer.lastIndexOf('\n\n');
+                    if (boundary === -1) continue;
+
+                    const completeMessages = buffer.substring(0, boundary);
+                    buffer = buffer.substring(boundary + 2);
+                    const messages = completeMessages.split('\n\n');
+
+                    for (const msg of messages) {
+                        if (!msg) continue;
+                        let event = 'message', data = '';
+                        const lines = msg.split('\n');
+                        for(const line of lines) {
+                             if (line.startsWith('event:')) event = line.replace('event:', '').trim();
+                             else if (line.startsWith('data:')) data += line.replace('data:', '').trim() + '\n';
+                        }
+                        data = data.trim();
+
+                        if (event === 'thinking') {
+                            if (!thinkingComponent) {
+                                thinkingComponent = document.createElement('div');
+                                thinkingComponent.className = 'message thinking-component';
+                                thinkingComponent.innerHTML = `
+                                    <div class="thinking-header">
+                                        <span>AI 思考中</span>
+                                        <span class="typing-indicator"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span>
+                                    </div>
+                                    <div class="thinking-steps"></div>`;
+                                chatMessages.appendChild(thinkingComponent);
+                                thinkingStepsContainer = thinkingComponent.querySelector('.thinking-steps');
+                            }
+                            
+                            // ========= 改造: 对思考步骤使用打字机效果 =========
+                            const stepP = document.createElement('p');
+                            thinkingStepsContainer.appendChild(stepP);
+                            // 等待当前步骤打字完成，再处理下一个事件
+                            await typewriterEffect(stepP, `> ${data}`);
+
+                        } else if (event === 'answer') {
+                            if (thinkingComponent) {
+                                const header = thinkingComponent.querySelector('.thinking-header span');
+                                header.textContent = 'AI 思考过程';
+                                thinkingComponent.querySelector('.typing-indicator').remove();
+                            }
+                            
+                            const answerElement = document.createElement('div');
+                            answerElement.className = 'message ai-message';
+                            chatMessages.appendChild(answerElement);
+                            
+                            // 等待最终答案打字完成
+                            await typewriterEffect(answerElement, data);
+
+                            // 打字全部结束后，恢复UI状态
+                            sendButton.disabled = false;
+                            messageInput.disabled = false;
+                            sendButton.textContent = '发送';
+                            messageInput.focus();
+                            return;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Fetch Error:', error);
+                const errorElement = document.createElement('div');
+                errorElement.className = 'message ai-message';
+                errorElement.textContent = '抱歉，网络或服务器出错了。';
+                chatMessages.appendChild(errorElement);
+                 // 出错时也要恢复UI
+                sendButton.disabled = false;
+                messageInput.disabled = false;
+                sendButton.textContent = '发送';
+                messageInput.focus();
+            }
+        }
+
+        // ... 事件监听不变 ...
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !sendButton.disabled) sendMessage();
+        });
+        window.addEventListener('load', () => messageInput.focus());
+    </script>
+</body>
+</html>

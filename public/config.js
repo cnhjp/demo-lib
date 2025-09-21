@@ -32,4 +32,13 @@ const demos = [
     link: "/maze",
     buttonClass: "bg-sky-500 hover:bg-sky-600",
   },
+  {
+    title: "AI 聊天机器人",
+    description:
+      "一个基于人工智能的聊天机器人，可以进行自然语言对话。采用前后端分离架构，前端通过 API 与后端通信。",
+    imageUrl: "/ai-chat/preview.png",
+    altText: "AI聊天机器人预览图",
+    link: "/ai-chat",
+    buttonClass: "bg-purple-500 hover:bg-purple-600",
+  },
 ];

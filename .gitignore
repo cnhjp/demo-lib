@@ -1,2 +1,8 @@
 .vercel
 .gemini
+.vercel
+
+node_modules/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
