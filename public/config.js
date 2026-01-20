@@ -50,6 +50,15 @@ const demos = [
     link: "/gray-page",
     buttonClass: "bg-slate-500 hover:bg-slate-600",
   },
+  {
+    title: "虚拟列表滚动",
+    description:
+      "将 Vue/Vite 版虚拟列表 Demo 翻译为原生实现，展示普通列表、固定高度虚拟列表与动态高度虚拟列表。",
+    imageUrl: "/virtual-list-scroll/preview.png",
+    altText: "虚拟列表滚动预览图",
+    link: "/virtual-list-scroll",
+    buttonClass: "bg-blue-500 hover:bg-blue-600",
+  },
 ];
 
 

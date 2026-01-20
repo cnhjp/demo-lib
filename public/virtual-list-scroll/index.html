@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/virtual-list-scroll/" />
+    <link rel="stylesheet" href="style.css" />
+    <title>虚拟列表滚动 | Demo</title>
+  </head>
+  <body>
+    <div class="page">
+      <header class="header">
+        <div>
+          <h1>虚拟列表滚动</h1>
+          <p class="subtitle">
+            将 Vue/Vite 版虚拟列表 Demo 翻译为原生 HTML/CSS/JS，包含固定高度与动态高度实现。
+          </p>
+        </div>
+        <div class="meta">渲染策略：普通列表 / scroll / observer / 动态高度</div>
+      </header>
+
+      <div class="tabs" id="tabs"></div>
+      <div class="content" id="content"></div>
+    </div>
+
+    <div class="toast hidden" id="toast">发生错误，请查看控制台</div>
+
+    <script src="main.js"></script>
+  </body>
+</html>
