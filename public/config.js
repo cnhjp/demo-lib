@@ -59,6 +59,15 @@ const demos = [
     link: "/virtual-list-scroll",
     buttonClass: "bg-blue-500 hover:bg-blue-600",
   },
+  {
+    title: "URL 数据编码器",
+    description:
+      "把文本内容压缩进 URL hash，支持一键复制分享链接，适合临时片段分享与快速协作。",
+    imageUrl: "/url-data/preview.png",
+    altText: "URL 数据编码器预览图",
+    link: "/url-data",
+    buttonClass: "bg-indigo-500 hover:bg-indigo-600",
+  },
 ];
 
 

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>url data</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.bootcdn.net/ajax/libs/lz-string/1.4.4/lz-string.js"></script>
+    <link rel="stylesheet" href="/url-data/style.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="hero">
+        <p class="eyebrow">URL DATA TOOLKIT</p>
+        <h1>把文本装进链接里</h1>
+        <p class="subtitle">
+          将任意文本压缩到 URL hash 中，生成可分享的短链接。无需后端存储，复制即可用。
+        </p>
+      </header>
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2>编辑区</h2>
+            <p class="hint">
+              粘贴内容后按 <span class="kbd">Ctrl</span> +
+              <span class="kbd">S</span> 生成链接并复制，或使用下方按钮。
+            </p>
+          </div>
+          <button id="copy-link" class="primary-btn" type="button">
+            生成并复制链接
+          </button>
+        </div>
+
+        <textarea id="code" rows="12" resize="y" placeholder="在此粘贴或输入文本..."></textarea>
+
+        <div class="meta">
+          <div class="meta-item">
+            <span class="meta-title">说明</span>
+            <p>仅使用 URL hash，不会上传内容到服务器。</p>
+          </div>
+          <div class="meta-item">
+            <span class="meta-title">适用场景</span>
+            <p>临时分享代码片段、配置或短文本。</p>
+          </div>
+          <div class="meta-item">
+            <span class="meta-title">提示</span>
+            <p>超大文本会导致 URL 过长，建议控制在可分享范围内。</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      window.onload = () => {
+        // 从 URL hash 解压并回填文本
+        const codeEl = document.getElementById("code");
+        const copyBtn = document.getElementById("copy-link");
+        if (!codeEl) return;
+        const hashStr = window.location.hash;
+        if (hashStr.startsWith("#code/")) {
+          const codeStr = hashStr.slice(6);
+          try {
+            const code = LZString.decompressFromEncodedURIComponent(codeStr);
+            if (typeof code === "string") {
+              codeEl.value = code;
+            }
+          } catch (error) {
+            console.error("解压失败:", error);
+          }
+        }
+
+        const updateHashAndCopy = async () => {
+          try {
+            const code = codeEl.value;
+            const codeStr = LZString.compressToEncodedURIComponent(code);
+            window.location.hash = `code/${codeStr}`;
+            await navigator.clipboard.writeText(window.location.href);
+            alert("已复制到剪贴板");
+          } catch (error) {
+            console.error("复制失败:", error);
+            alert("复制失败，请手动复制地址栏链接");
+          }
+        };
+
+        // 监听 Ctrl+S，将内容压缩后写入 hash 并复制链接
+        codeEl.addEventListener("keydown", async (e) => {
+          if (e.ctrlKey && e.key === "s") {
+            e.preventDefault();
+            await updateHashAndCopy();
+          }
+        });
+
+        if (copyBtn) {
+          copyBtn.addEventListener("click", async () => {
+            await updateHashAndCopy();
+          });
+        }
+      };
+    </script>
+  </body>
+</html>
