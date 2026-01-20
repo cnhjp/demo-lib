@@ -33,15 +33,6 @@ const demos = [
     buttonClass: "bg-sky-500 hover:bg-sky-600",
   },
   {
-    title: "AI 聊天机器人",
-    description:
-      "一个基于人工智能的聊天机器人，可以进行自然语言对话。采用前后端分离架构，前端通过 API 与后端通信。",
-    imageUrl: "/ai-chat/preview.png",
-    altText: "AI聊天机器人预览图",
-    link: "/ai-chat",
-    buttonClass: "bg-purple-500 hover:bg-purple-600",
-  },
-  {
     title: "页面置灰演示",
     description:
       "演示全局置灰、首屏置灰与部分区域保色的实现方式，适用于灰度发布或纪念日场景。",
@@ -51,5 +42,3 @@ const demos = [
     buttonClass: "bg-slate-500 hover:bg-slate-600",
   },
 ];
-
-

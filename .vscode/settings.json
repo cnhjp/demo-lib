@@ -1,0 +1,27 @@
+{
+  // 1. 设置 Prettier 为默认格式化工具
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+
+  // 2. 开启“保存时自动格式化”
+  "editor.formatOnSave": true,
+
+  // 3. 针对特定语言也启用 Prettier，确保一致性
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[vue]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  // 4. 开启“保存时自动修复 ESLint 问题”
+  // 这会修复除了格式之外的其他 ESLint 规则（如：移除未使用的变量）
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "i18n-ally.localesPaths": [
+    "src/locales",
+    "src/locales/langs",
+    "public/pdfjs/web/locale"
+  ],
+  "cSpell.words": ["jsapi", "wpsjs"]
+}
