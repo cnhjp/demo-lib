@@ -68,6 +68,13 @@ const demos = [
     link: "/url-data",
     buttonClass: "bg-indigo-500 hover:bg-indigo-600",
   },
+  {
+    title: "图片增强处理器",
+    description:
+      "基于 3x3 矩阵运算的仿射变换工具，支持旋转、翻转、缩放及摄像头实时处理。",
+    imageUrl: "/image-transformer/preview.png",
+    altText: "图片增强处理器预览图",
+    link: "/image-transformer",
+    buttonClass: "bg-cyan-500 hover:bg-cyan-600",
+  },
 ];
-
-
