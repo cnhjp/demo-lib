@@ -302,59 +302,68 @@ export class View3D {
       new THREE.Vector3(0, 0, 1),
       new THREE.Vector3(0, 0, -1)
     ];
-    const lateralNormals = ALL_NORMALS.filter(n => Math.abs(n.dot(dirVec)) < 0.01);
+    const cellMeshes = [];
 
-    arrow.cells.forEach(c => {
-      // 头部体素单独由精雕箭冠渲染，此处仅渲染非头部身体体素
-      if (c.x === head.x && c.y === head.y && c.z === head.z) return;
+    for (let i = 0; i < arrow.cells.length; i++) {
+      const c = arrow.cells[i];
+      const isHead = (c.x === head.x && c.y === head.y && c.z === head.z);
 
-      const mesh = new THREE.Mesh(this.boxGeom, material);
-      const { wx, wy, wz } = this.getVoxelWorldPos(c.x, c.y, c.z, this.sizeX, this.sizeY, this.sizeZ);
-      mesh.position.set(wx, wy, wz);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      mesh.userData = { arrowId: arrow.id };
+      if (isHead) {
+        // 装配一体化锐利 3D 箭冠 (Sculpted Arrow Head)
+        const { wx: hx, wy: hy, wz: hz } = this.getVoxelWorldPos(head.x, head.y, head.z, this.sizeX, this.sizeY, this.sizeZ);
+        const headMesh = new THREE.Mesh(this.headGeom, material);
+        headMesh.castShadow = true;
+        headMesh.receiveShadow = true;
+        headMesh.position.set(hx, hy, hz);
 
-      // 在身体体素的 4 个可见侧面上加装沿飞行方向的 3D 浮雕箭头
-      lateralNormals.forEach(n => {
-        const chevron = new THREE.Mesh(this.chevronGeom, this.chevronMaterial);
-        const xVec = new THREE.Vector3().crossVectors(dirVec, n).normalize();
-        const mat = new THREE.Matrix4();
-        mat.makeBasis(xVec, dirVec, n);
-        mat.setPosition(n.clone().multiplyScalar((this.cubeSize * 0.90) / 2 + 0.02));
-        chevron.applyMatrix4(mat);
-        chevron.userData = { arrowId: arrow.id };
-        mesh.add(chevron);
-      });
+        // 箭冠根据 3D 六向正交旋转
+        if (head.dir === 'right') {
+          headMesh.rotateY(Math.PI / 2);
+        } else if (head.dir === 'left') {
+          headMesh.rotateY(-Math.PI / 2);
+        } else if (head.dir === 'up') {
+          headMesh.rotateX(-Math.PI / 2);
+        } else if (head.dir === 'down') {
+          headMesh.rotateX(Math.PI / 2);
+        } else if (head.dir === 'forward') {
+          // 默认指向 +Z
+        } else if (head.dir === 'back') {
+          headMesh.rotateY(Math.PI);
+        }
 
-      group.add(mesh);
-    });
+        headMesh.userData = { arrowId: arrow.id, cellIndex: i };
+        group.add(headMesh);
+        cellMeshes.push(headMesh);
+      } else {
+        const mesh = new THREE.Mesh(this.boxGeom, material);
+        const { wx, wy, wz } = this.getVoxelWorldPos(c.x, c.y, c.z, this.sizeX, this.sizeY, this.sizeZ);
+        mesh.position.set(wx, wy, wz);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.userData = { arrowId: arrow.id, cellIndex: i };
 
-    // 2. 装配一体化锐利 3D 箭冠 (Sculpted Arrow Head)
-    const { wx: hx, wy: hy, wz: hz } = this.getVoxelWorldPos(head.x, head.y, head.z, this.sizeX, this.sizeY, this.sizeZ);
-    const headMesh = new THREE.Mesh(this.headGeom, material);
-    headMesh.castShadow = true;
-    headMesh.receiveShadow = true;
-    headMesh.position.set(hx, hy, hz);
+        // 在身体体素的 4 个可见侧面上加装沿体素连接流向的 3D 浮雕箭头
+        const nextCell = arrow.cells[i + 1] || head;
+        const segVec = new THREE.Vector3(nextCell.x - c.x, nextCell.y - c.y, nextCell.z - c.z).normalize();
+        const lateralNormals = ALL_NORMALS.filter(n => Math.abs(n.dot(segVec)) < 0.01);
 
-    // 箭冠根据 3D 六向正交旋转
-    if (head.dir === 'right') {
-      headMesh.rotateY(Math.PI / 2);
-    } else if (head.dir === 'left') {
-      headMesh.rotateY(-Math.PI / 2);
-    } else if (head.dir === 'up') {
-      headMesh.rotateX(-Math.PI / 2);
-    } else if (head.dir === 'down') {
-      headMesh.rotateX(Math.PI / 2);
-    } else if (head.dir === 'forward') {
-      // 默认指向 +Z
-    } else if (head.dir === 'back') {
-      headMesh.rotateY(Math.PI);
+        lateralNormals.forEach(n => {
+          const chevron = new THREE.Mesh(this.chevronGeom, this.chevronMaterial);
+          const xVec = new THREE.Vector3().crossVectors(segVec, n).normalize();
+          const mat = new THREE.Matrix4();
+          mat.makeBasis(xVec, segVec, n);
+          mat.setPosition(n.clone().multiplyScalar((this.cubeSize * 0.90) / 2 + 0.02));
+          chevron.applyMatrix4(mat);
+          chevron.userData = { arrowId: arrow.id };
+          mesh.add(chevron);
+        });
+
+        group.add(mesh);
+        cellMeshes.push(mesh);
+      }
     }
 
-    headMesh.userData = { arrowId: arrow.id };
-    group.add(headMesh);
-
+    group.userData = { arrowId: arrow.id, arrow, cellMeshes };
     return group;
   }
 
@@ -425,33 +434,74 @@ export class View3D {
   }
 
   // ==========================================
-  // 3D 动画系统：破空发射、阻挡震颤与时光倒流
+  // 3D 动画系统：破空蛇行发射、阻挡震颤与时光倒流
   // ==========================================
 
-  // 1. 破空发射飞向宇宙
-  animateShootOut(arrowId, onComplete, duration = 300) {
+  // 采样沿 3D 折线轨迹上的插值点坐标
+  sampleTrackPoint(V, S, shootDist, d) {
+    const K = V.length - 1; // V 有 K+1 个顶点 (V[0] 到 V[K-1] 为体素中心，V[K] 为远处发射终点)
+    const bodyLen = (K - 1) * S;
+    const totalLen = bodyLen + shootDist;
+
+    if (d <= 0) {
+      return V[0].clone();
+    }
+    if (d >= totalLen) {
+      return V[K].clone();
+    }
+
+    if (d < bodyLen) {
+      const segIdx = Math.min(Math.floor(d / S), K - 2);
+      const segT = (d - segIdx * S) / S;
+      return new window.THREE.Vector3().lerpVectors(V[segIdx], V[segIdx + 1], segT);
+    } else {
+      const forwardDist = d - bodyLen;
+      const segT = forwardDist / shootDist;
+      return new window.THREE.Vector3().lerpVectors(V[K - 1], V[K], segT);
+    }
+  }
+
+  // 1. 破空发射：多节体素沿自身折线关节轨迹平滑蛇行出射
+  animateShootOut(arrowId, onComplete, duration = 320) {
     const group = this.arrowGroups.get(arrowId);
     if (!group) { onComplete?.(); return; }
 
     const arrow = group.userData.arrow;
+    const cellMeshes = group.userData.cellMeshes || [];
     const dir = DIRS_3D[arrow.head.dir];
-    const shootDist = 45; // 破空飞行距离
+    const S = this.spacing;
+    const shootDist = 48; // 破空飞行距离
 
-    const startPos = group.position.clone();
-    const targetPos = startPos.clone().add(
-      new window.THREE.Vector3(dir.dx * shootDist, dir.dy * shootDist, dir.dz * shootDist)
-    );
+    // 提取箭头从尾到头的世界坐标轨迹链 V
+    const V = [];
+    for (let i = 0; i < arrow.cells.length; i++) {
+      const c = arrow.cells[i];
+      const { wx, wy, wz } = this.getVoxelWorldPos(c.x, c.y, c.z, this.sizeX, this.sizeY, this.sizeZ);
+      V.push(new window.THREE.Vector3(wx, wy, wz));
+    }
+    const forwardVec = new window.THREE.Vector3(dir.dx, dir.dy, dir.dz).normalize();
+    const headV = V[V.length - 1];
+    const farV = headV.clone().add(forwardVec.clone().multiplyScalar(shootDist));
+    V.push(farV);
 
     const startTime = performance.now();
 
     const animate = (now) => {
       const elapsed = now - startTime;
       const t = Math.min(1, elapsed / duration);
-      // 缓动曲线
+      // 平滑缓动
       const ease = t * t * (3 - 2 * t);
+      const advanceDistance = ease * shootDist;
 
-      group.position.lerpVectors(startPos, targetPos, ease);
-      group.scale.setScalar(1 - ease * 0.3); // 微缩远去
+      // 每一个体素方块独立沿折线轨迹向前蛇行滑行
+      for (let i = 0; i < cellMeshes.length; i++) {
+        const mesh = cellMeshes[i];
+        const d = i * S + advanceDistance;
+        const pos = this.sampleTrackPoint(V, S, shootDist, d);
+        mesh.position.copy(pos);
+        // 微缩融入深空
+        mesh.scale.setScalar(Math.max(0.01, 1 - ease * 0.35));
+      }
 
       if (t < 1) {
         requestAnimationFrame(animate);
@@ -466,20 +516,35 @@ export class View3D {
     requestAnimationFrame(animate);
   }
 
-  // 2. 时光倒流逆向从远空飞回归位
-  animateRewindIn(arrow, onComplete, duration = 320) {
+  // 2. 时光倒流：多节体素逆向沿发射轨迹蛇行归位
+  animateRewindIn(arrow, onComplete, duration = 340) {
     const group = this.buildArrowMeshGroup(arrow);
     this.scene.add(group);
     this.arrowGroups.set(arrow.id, group);
 
+    const cellMeshes = group.userData.cellMeshes || [];
     const dir = DIRS_3D[arrow.head.dir];
-    const shootDist = 45;
+    const S = this.spacing;
+    const shootDist = 48;
 
-    const finalPos = new window.THREE.Vector3(0, 0, 0);
-    const startPos = new window.THREE.Vector3(dir.dx * shootDist, dir.dy * shootDist, dir.dz * shootDist);
+    const V = [];
+    for (let i = 0; i < arrow.cells.length; i++) {
+      const c = arrow.cells[i];
+      const { wx, wy, wz } = this.getVoxelWorldPos(c.x, c.y, c.z, this.sizeX, this.sizeY, this.sizeZ);
+      V.push(new window.THREE.Vector3(wx, wy, wz));
+    }
+    const forwardVec = new window.THREE.Vector3(dir.dx, dir.dy, dir.dz).normalize();
+    const headV = V[V.length - 1];
+    const farV = headV.clone().add(forwardVec.clone().multiplyScalar(shootDist));
+    V.push(farV);
 
-    group.position.copy(startPos);
-    group.scale.setScalar(0.7);
+    // 初始位置设在远空
+    for (let i = 0; i < cellMeshes.length; i++) {
+      const d = i * S + shootDist;
+      const pos = this.sampleTrackPoint(V, S, shootDist, d);
+      cellMeshes[i].position.copy(pos);
+      cellMeshes[i].scale.setScalar(0.65);
+    }
 
     const startTime = performance.now();
 
@@ -487,15 +552,25 @@ export class View3D {
       const elapsed = now - startTime;
       const t = Math.min(1, elapsed / duration);
       const ease = t * t * (3 - 2 * t);
+      // 逆向倒流位移：从 shootDist 缩减至 0
+      const advanceDistance = (1 - ease) * shootDist;
 
-      group.position.lerpVectors(startPos, finalPos, ease);
-      group.scale.setScalar(0.7 + ease * 0.3);
+      for (let i = 0; i < cellMeshes.length; i++) {
+        const mesh = cellMeshes[i];
+        const d = i * S + advanceDistance;
+        const pos = this.sampleTrackPoint(V, S, shootDist, d);
+        mesh.position.copy(pos);
+        mesh.scale.setScalar(0.65 + ease * 0.35);
+      }
 
       if (t < 1) {
         requestAnimationFrame(animate);
       } else {
-        group.position.copy(finalPos);
-        group.scale.setScalar(1);
+        // 归位到初始网格位置
+        for (let i = 0; i < cellMeshes.length; i++) {
+          cellMeshes[i].position.copy(V[i]);
+          cellMeshes[i].scale.setScalar(1);
+        }
         onComplete?.();
       }
     };
