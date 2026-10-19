@@ -3,6 +3,7 @@
 // ==========================================
 
 import { DIRS, OPPOSITE, ARROW_COLORS, SHAPES } from './constants.js';
+import { findMovableArrows } from './physics.js';
 
 const DIR_KEYS = ['up', 'down', 'left', 'right'];
 
@@ -194,16 +195,103 @@ export function generateLevel({ shapeKey = 'rect', difficulty = 'medium' } = {})
     }
   }
 
-  // Pass 5: 【精致时间漏斗布设】（不占阻挡空间，只作贯穿加时奖励）
+  // Pass 5: 【精致时间漏斗布设】（确保 100% 处于至少一支箭头的发射贯穿路径上）
   let targetHourglassCount = 2;
   if (difficulty === 'medium') targetHourglassCount = 3;
   else if (difficulty === 'hard') targetHourglassCount = 4;
 
-  const emptyForHg = allValidCells.filter(pt => !occupied.has(`${pt.r},${pt.c}`)).sort(() => Math.random() - 0.5);
+  // 1. 分析开局直接可出射的无阻挡箭头，将其直接飞越路径计入“开局直吃黑名单”
+  const initiallyMovable = findMovableArrows(createdArrows, rows, cols);
+  const immediateFlightSet = new Set();
+  const initiallyMovableIds = new Set(initiallyMovable.map(a => a.id));
+
+  for (const arrow of initiallyMovable) {
+    const head = arrow.head;
+    const { dr, dc } = DIRS[head.dir];
+    let cr = head.r + dr;
+    let cc = head.c + dc;
+    while (cr >= 0 && cr < rows && cc >= 0 && cc < cols) {
+      immediateFlightSet.add(`${cr},${cc}`);
+      cr += dr;
+      cc += dc;
+    }
+  }
+
+  // 2. 统计受阻深层箭头（深度 >= 1）的前方出射轨迹网格与贯穿频次
+  const blockedFlightMap = new Map();
+  for (const arrow of createdArrows) {
+    if (initiallyMovableIds.has(arrow.id)) continue;
+    const head = arrow.head;
+    const { dr, dc } = DIRS[head.dir];
+    let cr = head.r + dr;
+    let cc = head.c + dc;
+    while (cr >= 0 && cr < rows && cc >= 0 && cc < cols) {
+      const key = `${cr},${cc}`;
+      blockedFlightMap.set(key, (blockedFlightMap.get(key) || 0) + 1);
+      cr += dr;
+      cc += dc;
+    }
+  }
+
+  // 3. 候选池：属于有效形状内 + 未被初始箭头占用 + 绝不开局直吃 + 处于受阻箭头解锁路线上
+  let candidateCells = allValidCells
+    .filter(pt => {
+      const key = `${pt.r},${pt.c}`;
+      return !occupied.has(key) && !immediateFlightSet.has(key) && blockedFlightMap.has(key);
+    })
+    .map(pt => {
+      const key = `${pt.r},${pt.c}`;
+      return {
+        r: pt.r,
+        c: pt.c,
+        hits: blockedFlightMap.get(key) || 1
+      };
+    });
+
+  // 安全保底：若因极端紧凑导致严格候选点不足，放宽开局直吃限制以确保漏斗数量达成
+  if (candidateCells.length < targetHourglassCount) {
+    candidateCells = allValidCells
+      .filter(pt => {
+        const key = `${pt.r},${pt.c}`;
+        return !occupied.has(key) && blockedFlightMap.has(key);
+      })
+      .map(pt => {
+        const key = `${pt.r},${pt.c}`;
+        return {
+          r: pt.r,
+          c: pt.c,
+          hits: blockedFlightMap.get(key) || 1
+        };
+      });
+  }
+
+  // 4. 排序策略：加权多重射线重叠点与适度随机散布
+  candidateCells.sort((a, b) => (b.hits - a.hits) * 2 + (Math.random() - 0.5) * 4);
+
+  // 4. 空间排斥采样：强制漏斗间距 ≥ 3.5 格欧氏距离，彻底杜绝相邻连在一起
   const hourglassList = [];
-  for (let i = 0; i < targetHourglassCount && i < emptyForHg.length; i++) {
-    const pt = emptyForHg[i];
-    hourglassList.push({ id: i + 1, r: pt.r, c: pt.c });
+  const PRIMARY_MIN_DIST = 3.5;
+  const FALLBACK_MIN_DIST = 2.0; // 紧凑棋盘二级保底（仍严格大于 1.414，绝不相邻紧挨）
+
+  for (const pt of candidateCells) {
+    if (hourglassList.length >= targetHourglassCount) break;
+    const tooClose = hourglassList.some(h => Math.hypot(h.r - pt.r, h.c - pt.c) < PRIMARY_MIN_DIST);
+    if (!tooClose) {
+      hourglassList.push({ id: hourglassList.length + 1, r: pt.r, c: pt.c });
+    }
+  }
+
+  // 极端紧凑异形棋盘二级保底补充
+  if (hourglassList.length < targetHourglassCount) {
+    for (const pt of candidateCells) {
+      if (hourglassList.length >= targetHourglassCount) break;
+      const alreadyPicked = hourglassList.some(h => h.r === pt.r && h.c === pt.c);
+      if (alreadyPicked) continue;
+      const tooClose = hourglassList.some(h => Math.hypot(h.r - pt.r, h.c - pt.c) < FALLBACK_MIN_DIST);
+      if (!tooClose) {
+        hourglassList.push({ id: hourglassList.length + 1, r: pt.r, c: pt.c });
+      }
+    }
   }
 
   return {

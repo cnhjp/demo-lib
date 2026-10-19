@@ -3,9 +3,10 @@
 ## 1. 项目概览 (Project Overview)
 `demo-lib` 是一个综合性的前端特效与交互 Demo 展示库，采用 **静态页面 + AI API 服务** 的混合架构，部署于 Vercel。
 
-- **前端展示层**：位于 `public/` 目录，通过 `index.html` 统一导航，各子目录（如 `maze`, `spotlight-effect`）为独立 Demo。
+- **前端展示层**：位于 `public/` 目录，通过 `index.html` 统一导航，各子目录（如 `maze`, `spotlight-effect`, `tiny-arrows`）为独立 Demo。
 - **配置驱动**：首页展示内容由 `public/config.js` 中的 `demos` 数组驱动。
 - **后端 API 层**：位于 `src/`，基于 TypeScript + Express 实现，主要提供 SSE (Server-Sent Events) AI 聊天能力。
+- **文档沉淀层**：位于 `docs/<demo-name>/`，记录具备复杂交互、自研算法或图形渲染 Demo 的架构设计与技术文档。
 
 ## 2. 技术栈 (Tech Stack)
 - **Runtime**: Node.js (via Vercel Functions)
@@ -35,6 +36,12 @@
 - 核心逻辑位于 `src/index.ts` (入口) 和 `src/ai-chat/index.ts` (SSE 实现)。
 - 修改后需通过 TypeScript 校验。
 
+### 3.3 如何维护复杂 Demo 的开发设计文档
+对于包含自研数学/拓扑算法、物理碰撞判定、多维空间渲染（如 `tiny-arrows`）等深逻辑 Demo，必须在 `docs/<demo-name>/` 目录留存对应的技术设计文档（命名为 `开发设计文档.md`）：
+1. **模块职责与架构分层**：阐述数据模型、表现层与物理引擎的解耦设计。
+2. **算法设计与数学证明**：详细推导核心算法（如 DAG 有向无环图、空间哈希碰撞、泊松空间排斥采样等）。
+3. **仿真验证命令**：提供脱机端到端测试与质量验证的 Node.js 脚本指令。
+
 ## 4. 关键命令 (Key Commands)
 - **依赖安装**: `pnpm install`
 - **本地开发 (推荐)**: `vercel dev` (模拟 Vercel 环境，支持 API 路由)
@@ -49,10 +56,12 @@
   - **跳转规范**：`public/config.js` 中的 `link` 统一使用带尾部斜杠的目录路径（如 `link: "/<demo-name>/"`）。
 - **AI 交互**: API 接口遵循标准的 SSE 协议，响应头需包含 `Content-Type: text/event-stream`。
 - **禁止项**: 严禁在静态 Demo 中引入大型框架（如 React/Vue），保持 Vanilla JS / ES Modules 的轻量性。
+- **文档零二进制规范**: 技术文档严格使用纯 Markdown 与 Mermaid 图表描述流程与架构，严禁将截图、录屏或 Base64 编码图片落盘提交至 `docs/` 目录中。
 
 ## 6. 验证清单 (Validation Checklist)
 - [ ] Demo 的 `index.html` 是否在 `<head>` 正确声明了 `<base href="/<demo-name>/" />`？
 - [ ] `public/config.js` 中的 `link` 是否以斜杠结尾（如 `link: "/<demo-name>/"`）？
 - [ ] 修改 `public/config.js` 后，首页是否正确渲染新卡片？
 - [ ] 在无尾部斜杠 URL 下（如 `/tiny-arrows`），样式与 JS 脚本是否均能 200 正常加载？
+- [ ] 复杂算法/双维度 Demo 是否已在 `docs/<demo-name>/` 留存对应的技术设计文档？
 - [ ] API 变更后，`vercel dev` 下的 `/api/ai-chat` 接口是否响应正常？

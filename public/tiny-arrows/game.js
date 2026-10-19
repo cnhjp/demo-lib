@@ -5,8 +5,8 @@
 import { DIRS, SHAPES, SHAPES_3D, GAME_RULES } from './js/constants.js';
 import { SoundSynth } from './js/audio.js';
 import { buildArrowSvgGeometry } from './js/geometry.js';
-import { checkArrowClearance, checkFlightLoot } from './js/physics.js';
-import { checkArrowClearance3D } from './js/physics3d.js';
+import { checkArrowClearance, checkFlightLoot, findMovableArrows } from './js/physics.js';
+import { checkArrowClearance3D, findMovableArrows3D } from './js/physics3d.js';
 import { generateLevel } from './js/generator.js';
 import { generateLevel3D } from './js/generator3d.js';
 import { animateSlitherFlowOut, animateSlitherRewindIn } from './js/animator.js';
@@ -625,9 +625,9 @@ class TinyArrowsGame {
   // ==========================================
   getMovableArrows() {
     if (this.mode === '3d') {
-      return this.arrows.filter(a => checkArrowClearance3D(a, this.arrows, this.sizeX, this.sizeY, this.sizeZ).clear);
+      return findMovableArrows3D(this.arrows, this.sizeX, this.sizeY, this.sizeZ);
     }
-    return this.arrows.filter(a => checkArrowClearance(a, this.arrows, this.rows, this.cols).clear);
+    return findMovableArrows(this.arrows, this.rows, this.cols);
   }
 
   showHint() {
@@ -635,7 +635,36 @@ class TinyArrowsGame {
     if (movables.length === 0) return;
 
     this.sound.playBonus();
-    const pick = movables[Math.floor(Math.random() * movables.length)];
+
+    // 智能战术提示优先级：
+    // 1. 首选可贯穿捕获时间漏斗的箭头（+15s 关键补时）
+    // 2. 次选身体最长、最能打通局面的骨干箭头
+    let pick = movables[0];
+    if (movables.length > 1) {
+      if (this.mode === '2d' && this.hourglasses && this.hourglasses.length > 0) {
+        const lootHunter = movables.find(a => {
+          const { dr, dc } = DIRS[a.head.dir];
+          let cr = a.head.r + dr, cc = a.head.c + dc;
+          while (cr >= 0 && cr < this.rows && cc >= 0 && cc < this.cols) {
+            if (this.hourglasses.some(h => h.r === cr && h.c === cc)) return true;
+            cr += dr;
+            cc += dc;
+          }
+          return false;
+        });
+        if (lootHunter) pick = lootHunter;
+      }
+      if (pick === movables[0]) {
+        let maxLen = -1;
+        for (const a of movables) {
+          const len = a.cells ? a.cells.length : 1;
+          if (len > maxLen) {
+            maxLen = len;
+            pick = a;
+          }
+        }
+      }
+    }
 
     if (this.mode === '3d') {
       this.view3d?.highlightHintArrow(pick.id);

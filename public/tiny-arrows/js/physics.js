@@ -1,30 +1,59 @@
 // ==========================================
-// 射线物理穿透与阻挡判定引擎
+// 射线物理穿透与阻挡判定引擎 (高性能空间网格加速)
 // ==========================================
 
 import { DIRS } from './constants.js';
 
 /**
+ * 构建 2D 空间单元格快速查找哈希表 O(N)
+ * @param {Array} arrows 箭头列表
+ * @returns {Map<number, Object>} 坐标压缩整数键 -> 箭头对象引用
+ */
+export function buildSpatialMap(arrows) {
+  const map = new Map();
+  for (let i = 0; i < arrows.length; i++) {
+    const a = arrows[i];
+    for (let j = 0; j < a.cells.length; j++) {
+      const c = a.cells[j];
+      map.set((c.r << 16) | c.c, a);
+    }
+  }
+  return map;
+}
+
+/**
  * 射线投射检查箭头前方是否有阻挡
  * @param {Object} arrow 当前待发射箭头
- * @param {Array} arrows 棋盘内所有当前箭头
+ * @param {Array|Map} arrowsOrMap 棋盘内所有当前箭头 或 预构建的 SpatialMap
  * @param {number} rows 棋盘行数
  * @param {number} cols 棋盘列数
  * @returns {Object} { clear: boolean, blocker?: Object }
  */
-export function checkArrowClearance(arrow, arrows, rows, cols) {
+export function checkArrowClearance(arrow, arrowsOrMap, rows, cols) {
   const head = arrow.head;
   const { dr, dc } = DIRS[head.dir];
 
   let cr = head.r + dr;
   let cc = head.c + dc;
 
+  const isMap = arrowsOrMap instanceof Map;
+
   while (cr >= 0 && cr < rows && cc >= 0 && cc < cols) {
-    for (const other of arrows) {
-      if (other.id === arrow.id) continue;
-      const hit = other.cells.some(c => c.r === cr && c.c === cc);
-      if (hit) {
-        return { clear: false, blocker: other };
+    if (isMap) {
+      const blocker = arrowsOrMap.get((cr << 16) | cc);
+      if (blocker && blocker.id !== arrow.id) {
+        return { clear: false, blocker };
+      }
+    } else {
+      for (let i = 0; i < arrowsOrMap.length; i++) {
+        const other = arrowsOrMap[i];
+        if (other.id === arrow.id) continue;
+        for (let j = 0; j < other.cells.length; j++) {
+          const c = other.cells[j];
+          if (c.r === cr && c.c === cc) {
+            return { clear: false, blocker: other };
+          }
+        }
       }
     }
     cr += dr;
@@ -32,6 +61,26 @@ export function checkArrowClearance(arrow, arrows, rows, cols) {
   }
 
   return { clear: true };
+}
+
+/**
+ * 一次性高效获取所有当前无阻挡可发射的箭头 (O(N) 极速空间哈希索引)
+ * @param {Array} arrows 棋盘所有箭头
+ * @param {number} rows 棋盘行数
+ * @param {number} cols 棋盘列数
+ * @returns {Array} 可发射箭头数组
+ */
+export function findMovableArrows(arrows, rows, cols) {
+  if (!arrows || arrows.length === 0) return [];
+  const map = buildSpatialMap(arrows);
+  const movables = [];
+  for (let i = 0; i < arrows.length; i++) {
+    const a = arrows[i];
+    if (checkArrowClearance(a, map, rows, cols).clear) {
+      movables.push(a);
+    }
+  }
+  return movables;
 }
 
 /**

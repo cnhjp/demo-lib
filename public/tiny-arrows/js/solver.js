@@ -43,7 +43,21 @@ export class AutoSolver {
         return;
       }
 
-      const pick = movables[0];
+      // 启发式智能优选：若有多个可移动箭头，优先消除长身/主干箭头，最大化释放后续多米诺连锁反应
+      let pick = movables[0];
+      if (movables.length > 1) {
+        let maxScore = -1;
+        for (let i = 0; i < movables.length; i++) {
+          const a = movables[i];
+          const len = a.cells ? a.cells.length : 1;
+          // 加权身体长度，形成舒展畅快的开局连击
+          const score = len * 10 + (a.id % 5);
+          if (score > maxScore) {
+            maxScore = score;
+            pick = a;
+          }
+        }
+      }
 
       // 动态非线性心流节奏曲线（前 12% 适度启动 -> 中段 73% 疾风暴雨扫射 -> 后 15% 沉稳慢收官）
       const progress = (totalSteps - remainingCount) / Math.max(1, totalSteps);
