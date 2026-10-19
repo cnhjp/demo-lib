@@ -1,24 +1,34 @@
 // ==========================================
-// 小小箭头 (Tiny Arrows) - 游戏主调度控制器
+// 小小箭头 (Tiny Arrows) - 2D/3D 双维度游戏主控制器
 // ==========================================
 
-import { DIRS, SHAPES, GAME_RULES } from './js/constants.js';
+import { DIRS, SHAPES, SHAPES_3D, GAME_RULES } from './js/constants.js';
 import { SoundSynth } from './js/audio.js';
 import { buildArrowSvgGeometry } from './js/geometry.js';
 import { checkArrowClearance, checkFlightLoot } from './js/physics.js';
+import { checkArrowClearance3D } from './js/physics3d.js';
 import { generateLevel } from './js/generator.js';
+import { generateLevel3D } from './js/generator3d.js';
 import { animateSlitherFlowOut, animateSlitherRewindIn } from './js/animator.js';
+import { View3D } from './js/view3d.js';
 import { AutoSolver } from './js/solver.js';
 
 class TinyArrowsGame {
   constructor() {
     this.sound = new SoundSynth();
+    this.mode = '2d'; // '2d' | '3d'
     this.shapeKey = 'rect';
     this.difficulty = 'medium';
 
+    // 2D 状态
     this.rows = 24;
     this.cols = 16;
     this.cellSize = 20;
+
+    // 3D 状态
+    this.sizeX = 5;
+    this.sizeY = 5;
+    this.sizeZ = 5;
 
     this.arrows = [];
     this.hourglasses = [];
@@ -35,8 +45,11 @@ class TinyArrowsGame {
     this.isRewinding = false;
     this.showAllMovable = false;
     this.currentHintLaser = null;
+    this.theme = localStorage.getItem('tiny_arrows_theme') || 'light';
 
     this.initDOM();
+    this.initTheme();
+    this.init3DView();
     this.initSolver();
     this.bindEvents();
     this.startNewGame();
@@ -44,6 +57,9 @@ class TinyArrowsGame {
 
   initDOM() {
     this.dom = {
+      btnMode2D: document.getElementById('btn-mode-2d'),
+      btnMode3D: document.getElementById('btn-mode-3d'),
+
       shapeSelect: document.getElementById('shape-select'),
       diffSelect: document.getElementById('difficulty-select'),
       btnNewGame: document.getElementById('btn-new-game'),
@@ -53,6 +69,7 @@ class TinyArrowsGame {
       btnAutoSolve: document.getElementById('btn-autosolve'),
       btnUndo: document.getElementById('btn-undo'),
       btnRestart: document.getElementById('btn-restart'),
+      btnThemeToggle: document.getElementById('btn-theme-toggle'),
       btnMute: document.getElementById('btn-mute'),
 
       statTime: document.getElementById('stat-time'),
@@ -61,6 +78,9 @@ class TinyArrowsGame {
       timerBarFill: document.getElementById('timer-bar-fill'),
 
       boardContainer: document.getElementById('board-container'),
+      webgl3dContainer: document.getElementById('webgl-3d-container'),
+      hint3dOverlay: document.getElementById('hint-3d-overlay'),
+      btnResetCam: document.getElementById('btn-reset-cam'),
       flightOverlay: document.getElementById('fullscreen-flight-overlay'),
 
       autoSolvePanel: document.getElementById('autosolve-panel'),
@@ -77,9 +97,41 @@ class TinyArrowsGame {
       btnRetry: document.getElementById('btn-retry')
     };
 
+    // 2D SVG 主画布挂载
     this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     this.svg.classList.add('game-svg-canvas');
     this.dom.boardContainer.appendChild(this.svg);
+  }
+
+  // ==========================================
+  // 全局亮暗主题调度系统 (Light / Dark)
+  // ==========================================
+  initTheme() {
+    this.applyTheme(this.theme);
+  }
+
+  toggleTheme() {
+    this.theme = this.theme === 'light' ? 'dark' : 'light';
+    localStorage.setItem('tiny_arrows_theme', this.theme);
+    this.applyTheme(this.theme);
+  }
+
+  applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    if (this.dom.btnThemeToggle) {
+      this.dom.btnThemeToggle.textContent = theme === 'dark' ? '🌙' : '☀️';
+      this.dom.btnThemeToggle.title = theme === 'dark' ? '当前：暗色模式 (点击切至亮色)' : '当前：亮色模式 (点击切至暗色)';
+    }
+    this.view3d?.setTheme(theme);
+  }
+
+  init3DView() {
+    if (this.dom.webgl3dContainer) {
+      this.view3d = new View3D(this.dom.webgl3dContainer, {
+        theme: this.theme,
+        onArrowClick: (arrowId) => this.handleArrowShoot(arrowId)
+      });
+    }
   }
 
   initSolver() {
@@ -88,28 +140,39 @@ class TinyArrowsGame {
       onStep: (pick, flightDuration, nextCallback) => {
         this.sound.playWhoosh();
         this.moves++;
-        this.triggerFlightLoot(pick);
 
-        const boardRect = this.svg.getBoundingClientRect();
-        const svgW = this.cols * this.cellSize;
-        const svgH = this.rows * this.cellSize;
-
-        animateSlitherFlowOut({
-          arrow: pick,
-          flightOverlayEl: this.dom.flightOverlay,
-          cellSize: this.cellSize,
-          boardRect,
-          svgWidth: svgW,
-          svgHeight: svgH,
-          durationOverride: flightDuration,
-          onComplete: () => {
+        if (this.mode === '3d') {
+          // 3D 解题发射
+          this.view3d.animateShootOut(pick.id, () => {
             this.arrows = this.arrows.filter(a => a.id !== pick.id);
             this.updateStats();
             this.checkWin();
-            this.updateMovableHighlights();
             nextCallback(this.arrows.length);
-          }
-        });
+          }, flightDuration);
+        } else {
+          // 2D 解题发射
+          this.triggerFlightLoot(pick);
+          const boardRect = this.svg.getBoundingClientRect();
+          const svgW = this.cols * this.cellSize;
+          const svgH = this.rows * this.cellSize;
+
+          animateSlitherFlowOut({
+            arrow: pick,
+            flightOverlayEl: this.dom.flightOverlay,
+            cellSize: this.cellSize,
+            boardRect,
+            svgWidth: svgW,
+            svgHeight: svgH,
+            durationOverride: flightDuration,
+            onComplete: () => {
+              this.arrows = this.arrows.filter(a => a.id !== pick.id);
+              this.updateStats();
+              this.checkWin();
+              this.updateMovableHighlights();
+              nextCallback(this.arrows.length);
+            }
+          });
+        }
       },
       onFinish: () => this.stopAutoSolve(),
       onBlocked: () => {
@@ -120,6 +183,10 @@ class TinyArrowsGame {
   }
 
   bindEvents() {
+    // 维度切换
+    this.dom.btnMode2D?.addEventListener('click', () => this.switchMode('2d'));
+    this.dom.btnMode3D?.addEventListener('click', () => this.switchMode('3d'));
+
     this.dom.shapeSelect.addEventListener('change', (e) => {
       this.shapeKey = e.target.value;
       this.startNewGame();
@@ -147,9 +214,17 @@ class TinyArrowsGame {
       this.dom.speedValueText.textContent = `${(val / 100).toFixed(1)}x`;
     });
 
+    this.dom.btnThemeToggle?.addEventListener('click', () => {
+      this.toggleTheme();
+    });
+
     this.dom.btnMute.addEventListener('click', () => {
       this.sound.muted = !this.sound.muted;
       this.dom.btnMute.textContent = this.sound.muted ? '🔇 静音' : '🔊 声音';
+    });
+
+    this.dom.btnResetCam?.addEventListener('click', () => {
+      this.view3d?.resetCamera();
     });
 
     this.dom.btnModalNewGame.addEventListener('click', () => {
@@ -170,20 +245,82 @@ class TinyArrowsGame {
   }
 
   // ==========================================
+  // 维度切换核心调度 (2D <-> 3D)
+  // ==========================================
+  switchMode(newMode) {
+    if (this.mode === newMode) return;
+    this.stopAutoSolve();
+    this.mode = newMode;
+
+    // 切换按钮状态
+    this.dom.btnMode2D?.classList.toggle('active', newMode === '2d');
+    this.dom.btnMode3D?.classList.toggle('active', newMode === '3d');
+
+    // 棋盘容器样式扩展
+    this.dom.boardContainer.classList.toggle('mode-3d-active', newMode === '3d');
+
+    // 画布显隐切换
+    this.svg.style.display = newMode === '2d' ? 'block' : 'none';
+    if (this.dom.webgl3dContainer) {
+      this.dom.webgl3dContainer.style.display = newMode === '3d' ? 'block' : 'none';
+    }
+    if (this.dom.hint3dOverlay) {
+      this.dom.hint3dOverlay.style.display = newMode === '3d' ? 'flex' : 'none';
+    }
+
+    // 动态同步形状下拉列表
+    if (newMode === '3d') {
+      this.dom.shapeSelect.innerHTML = `
+        <option value="cube" selected>🧊 经典立体魔方</option>
+        <option value="diamond3d">💎 3D水晶八面体</option>
+        <option value="heart3d">❤️ 3D立体爱心</option>
+      `;
+      this.shapeKey = 'cube';
+    } else {
+      this.dom.shapeSelect.innerHTML = `
+        <option value="rect" selected>📱 经典纵向</option>
+        <option value="heart">❤️ 心形点阵</option>
+        <option value="diamond">💎 钻石点阵</option>
+        <option value="donut">🍩 甜甜圈环</option>
+      `;
+      this.shapeKey = 'rect';
+    }
+
+    this.startNewGame();
+
+    if (newMode === '3d') {
+      setTimeout(() => this.view3d?.onResize(), 80);
+    }
+  }
+
+  // ==========================================
   // 关卡数据初始化与重置
   // ==========================================
   startNewGame() {
-    const levelData = generateLevel({
-      shapeKey: this.shapeKey,
-      difficulty: this.difficulty
-    });
+    if (this.mode === '3d') {
+      const levelData = generateLevel3D({
+        shapeKey: this.shapeKey,
+        difficulty: this.difficulty
+      });
+      this.sizeX = levelData.sizeX;
+      this.sizeY = levelData.sizeY;
+      this.sizeZ = levelData.sizeZ;
+      this.totalTime = levelData.totalTime;
 
-    this.rows = levelData.rows;
-    this.cols = levelData.cols;
-    this.totalTime = levelData.totalTime;
+      this.initialArrows = levelData.arrows.map(a => ({ ...a, cells: [...a.cells] }));
+      this.initialHourglasses = [];
+    } else {
+      const levelData = generateLevel({
+        shapeKey: this.shapeKey,
+        difficulty: this.difficulty
+      });
+      this.rows = levelData.rows;
+      this.cols = levelData.cols;
+      this.totalTime = levelData.totalTime;
 
-    this.initialArrows = levelData.arrows.map(a => ({ ...a, cells: [...a.cells] }));
-    this.initialHourglasses = levelData.hourglasses.map(h => ({ ...h }));
+      this.initialArrows = levelData.arrows.map(a => ({ ...a, cells: [...a.cells] }));
+      this.initialHourglasses = levelData.hourglasses.map(h => ({ ...h }));
+    }
 
     this.restartCurrentLevel();
   }
@@ -205,15 +342,28 @@ class TinyArrowsGame {
   }
 
   // ==========================================
-  // 棋盘渲染 (高精微距矢量)
+  // 棋盘渲染 (2D SVG vs 3D WebGL)
   // ==========================================
   renderBoard() {
+    if (this.mode === '3d') {
+      // 3D 渲染
+      this.view3d?.renderLevel({
+        sizeX: this.sizeX,
+        sizeY: this.sizeY,
+        sizeZ: this.sizeZ,
+        arrows: this.arrows
+      });
+      this.updateStats();
+      return;
+    }
+
+    // 2D SVG 渲染
     this.svg.innerHTML = '';
 
     let cellSize = 22;
-    if (this.rows >= 28) cellSize = 18.5; // 困难模式
-    else if (this.rows >= 24) cellSize = 20.5; // 中等模式
-    else cellSize = 23; // 简单模式
+    if (this.rows >= 28) cellSize = 18.5;
+    else if (this.rows >= 24) cellSize = 20.5;
+    else cellSize = 23;
     this.cellSize = cellSize;
 
     const width = this.cols * cellSize;
@@ -224,7 +374,7 @@ class TinyArrowsGame {
 
     const S = this.cellSize;
 
-    // 渲染精致时间漏斗 (金色微光，只作贯穿加时)
+    // 渲染时间漏斗
     this.hourglasses.forEach(hg => {
       const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       g.setAttribute('class', 'hourglass-item');
@@ -237,7 +387,7 @@ class TinyArrowsGame {
       hg.el = g;
     });
 
-    // 渲染规整正交折线箭头
+    // 渲染 2D 规整正交折线箭头
     this.arrows.forEach(arrow => {
       const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       g.setAttribute('class', 'arrow-group');
@@ -270,7 +420,7 @@ class TinyArrowsGame {
   }
 
   // ==========================================
-  // 交互控制：点击射出与失误扣时反馈
+  // 点击射出与失误扣时反馈 (2D / 3D 双模式)
   // ==========================================
   handleArrowShoot(arrowId) {
     if (this.solver.isAutoSolving || this.isRewinding) return;
@@ -278,29 +428,55 @@ class TinyArrowsGame {
     const arrow = this.arrows.find(a => a.id === arrowId);
     if (!arrow) return;
 
+    // === 3D 模式射出检测 ===
+    if (this.mode === '3d') {
+      const res = checkArrowClearance3D(arrow, this.arrows, this.sizeX, this.sizeY, this.sizeZ);
+
+      if (!res.clear) {
+        this.sound.playBonk();
+        this.sound.playPenalty();
+
+        // 出错扣除 5 秒时间
+        this.timeLeft = Math.max(0, this.timeLeft - GAME_RULES.PENALTY_SECONDS);
+        this.pulsePenaltyTimer();
+
+        // 3D 轴向剧烈震颤与阻挡方红光警示
+        this.view3d?.animateBlockedShake(arrow.id);
+        if (res.blocker) this.view3d?.highlightBlocker(res.blocker.id);
+
+        this.updateStats();
+        if (this.timeLeft <= 0) this.handleTimeout();
+      } else {
+        this.sound.playWhoosh();
+        this.moves++;
+        this.history.push({ ...arrow, cells: [...arrow.cells] });
+
+        // 3D 破空射出
+        this.view3d?.animateShootOut(arrow.id, () => {
+          this.arrows = this.arrows.filter(a => a.id !== arrowId);
+          this.updateStats();
+          this.checkWin();
+        });
+      }
+      return;
+    }
+
+    // === 2D 模式射出检测 ===
     const res = checkArrowClearance(arrow, this.arrows, this.rows, this.cols);
 
     if (!res.clear) {
       this.sound.playBonk();
       this.sound.playPenalty();
 
-      // 出错扣除 5 秒惩罚时间
       this.timeLeft = Math.max(0, this.timeLeft - GAME_RULES.PENALTY_SECONDS);
       this.spawnFloatingPenalty(arrow.head.c, arrow.head.r);
-
-      if (this.dom.statTime) {
-        this.dom.statTime.classList.remove('time-penalty-pulse');
-        void this.dom.statTime.offsetWidth;
-        this.dom.statTime.classList.add('time-penalty-pulse');
-      }
+      this.pulsePenaltyTimer();
       this.updateStats();
 
-      // 箭头受阻震颤抖动
-      arrow.groupEl.classList.remove('arrow-blocked-shake');
-      void arrow.groupEl.offsetWidth;
-      arrow.groupEl.classList.add('arrow-blocked-shake');
+      arrow.groupEl?.classList.remove('arrow-blocked-shake');
+      void arrow.groupEl?.offsetWidth;
+      arrow.groupEl?.classList.add('arrow-blocked-shake');
 
-      // 阻挡方警示
       if (res.blocker && res.blocker.groupEl) {
         const targetEl = res.blocker.groupEl;
         targetEl.classList.remove('arrow-blocker-warning');
@@ -309,9 +485,7 @@ class TinyArrowsGame {
         setTimeout(() => targetEl.classList.remove('arrow-blocker-warning'), 1000);
       }
 
-      if (this.timeLeft <= 0) {
-        this.handleTimeout();
-      }
+      if (this.timeLeft <= 0) this.handleTimeout();
     } else {
       this.sound.playWhoosh();
       this.moves++;
@@ -340,7 +514,15 @@ class TinyArrowsGame {
     }
   }
 
-  // 飞行穿透拾取漏斗
+  pulsePenaltyTimer() {
+    if (this.dom.statTime) {
+      this.dom.statTime.classList.remove('time-penalty-pulse');
+      void this.dom.statTime.offsetWidth;
+      this.dom.statTime.classList.add('time-penalty-pulse');
+    }
+  }
+
+  // 飞行穿透拾取漏斗 (2D)
   triggerFlightLoot(arrow) {
     const looted = checkFlightLoot(arrow, this.hourglasses, this.rows, this.cols);
     looted.forEach(hg => {
@@ -385,15 +567,27 @@ class TinyArrowsGame {
   }
 
   // ==========================================
-  // 撤销：时间倒流逆向归位
+  // 撤销：时间倒流逆向归位 (2D / 3D)
   // ==========================================
   undo() {
     if (this.solver.isAutoSolving || this.isRewinding || this.history.length === 0) return;
     this.isRewinding = true;
 
     const last = this.history.pop();
+    this.moves = Math.max(0, this.moves - 1);
+    this.arrows.push(last);
 
-    // 回滚该步射出拾取的漏斗与时间奖励
+    // === 3D 撤销倒流 ===
+    if (this.mode === '3d') {
+      this.sound.playRewind();
+      this.view3d?.animateRewindIn(last, () => {
+        this.isRewinding = false;
+        this.updateStats();
+      });
+      return;
+    }
+
+    // === 2D 撤销倒流 ===
     if (last.lootedHourglasses && last.lootedHourglasses.length > 0) {
       last.lootedHourglasses.forEach(hg => {
         this.hourglasses.push({ id: hg.id, r: hg.r, c: hg.c });
@@ -401,14 +595,8 @@ class TinyArrowsGame {
       this.timeLeft = Math.max(1, this.timeLeft - GAME_RULES.HOURGLASS_BONUS_SECONDS * last.lootedHourglasses.length);
     }
 
-    this.moves = Math.max(0, this.moves - 1);
-    this.arrows.push(last);
     this.renderBoard();
-
-    // 重新挂载后先隐藏箭头实际 SVG 节点，由逆流引擎播完后再现身
-    if (last.groupEl) {
-      last.groupEl.style.visibility = 'hidden';
-    }
+    if (last.groupEl) last.groupEl.style.visibility = 'hidden';
 
     this.sound.playRewind();
 
@@ -424,9 +612,7 @@ class TinyArrowsGame {
       svgWidth: svgW,
       svgHeight: svgH,
       onComplete: () => {
-        if (last.groupEl) {
-          last.groupEl.style.visibility = 'visible';
-        }
+        if (last.groupEl) last.groupEl.style.visibility = 'visible';
         this.isRewinding = false;
         this.updateStats();
         this.updateMovableHighlights();
@@ -435,9 +621,12 @@ class TinyArrowsGame {
   }
 
   // ==========================================
-  // 提示与辅助透视系统
+  // 提示系统 (2D / 3D)
   // ==========================================
   getMovableArrows() {
+    if (this.mode === '3d') {
+      return this.arrows.filter(a => checkArrowClearance3D(a, this.arrows, this.sizeX, this.sizeY, this.sizeZ).clear);
+    }
     return this.arrows.filter(a => checkArrowClearance(a, this.arrows, this.rows, this.cols).clear);
   }
 
@@ -448,6 +637,11 @@ class TinyArrowsGame {
     this.sound.playBonus();
     const pick = movables[Math.floor(Math.random() * movables.length)];
 
+    if (this.mode === '3d') {
+      this.view3d?.highlightHintArrow(pick.id);
+      return;
+    }
+
     if (pick.groupEl) {
       pick.groupEl.classList.remove('arrow-movable-ready');
       void pick.groupEl.offsetWidth;
@@ -457,7 +651,7 @@ class TinyArrowsGame {
       }, 1600);
     }
 
-    // 绘制射向边缘的高光激光引导虚线
+    // 2D 激光发射虚线
     const S = this.cellSize;
     const { dr, dc } = DIRS[pick.head.dir];
     const geom = pick.geometry?.headGeometry;
@@ -508,7 +702,7 @@ class TinyArrowsGame {
     this.arrows.forEach(a => {
       if (a.groupEl) a.groupEl.classList.remove('arrow-movable-ready');
     });
-    if (!this.showAllMovable) return;
+    if (!this.showAllMovable || this.mode === '3d') return;
     const movables = this.getMovableArrows();
     movables.forEach(a => {
       if (a.groupEl) a.groupEl.classList.add('arrow-movable-ready');
@@ -522,6 +716,9 @@ class TinyArrowsGame {
     if (this.solver.isAutoSolving) return;
     this.dom.autoSolvePanel.classList.add('active');
     this.dom.btnAutoSolve.disabled = true;
+    if (this.mode === '3d') {
+      this.view3d?.setAutoRotate(true, 3.8);
+    }
     this.solver.start(this.initialArrows?.length || this.arrows.length);
   }
 
@@ -529,6 +726,7 @@ class TinyArrowsGame {
     this.solver.stop();
     this.dom.autoSolvePanel.classList.remove('active');
     this.dom.btnAutoSolve.disabled = false;
+    this.view3d?.setAutoRotate(false);
   }
 
   // ==========================================
@@ -578,9 +776,11 @@ class TinyArrowsGame {
   checkWin() {
     if (this.arrows.length === 0) {
       clearInterval(this.timerInterval);
+      this.stopAutoSolve();
       this.sound.playWin();
       setTimeout(() => {
-        this.dom.winDesc.textContent = `完美清屏！剩余时间 ${this.dom.statTime.textContent}，仅用 ${this.moves} 步解救所有折线箭头！`;
+        const modeLabel = this.mode === '3d' ? '3D 空间立体魔方' : '2D 折线迷阵';
+        this.dom.winDesc.textContent = `完美清空【${modeLabel}】！剩余时间 ${this.dom.statTime.textContent}，仅用 ${this.moves} 步解开全部箭头！`;
         this.dom.winModal.classList.add('show');
       }, 400);
     }

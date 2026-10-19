@@ -6,6 +6,9 @@
     <base href="/tiny-arrows/" />
     <title>小小箭头 · 实体多格折线消除</title>
     <link rel="stylesheet" href="style.css" />
+    <!-- Three.js 与 OrbitControls (三维空间渲染引擎) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   </head>
   <body>
     <!-- 顶部导航栏 -->
@@ -21,21 +24,17 @@
         <h1 class="game-title">小小箭头</h1>
       </div>
 
-      <!-- 选项与控制 (单行紧凑排列) -->
+      <!-- 维度切换：2D 平面 vs 3D 立体空间 -->
+      <div class="mode-switch-group">
+        <button id="btn-mode-2d" class="btn-mode active" title="2D 经典正交折线">2D 平面</button>
+        <button id="btn-mode-3d" class="btn-mode" title="3D 空间立体解谜">🎲 3D 空间</button>
+      </div>
+
+      <!-- 右侧极简系统控制 (☀️/🌙 主题 + 🔊 声音) -->
       <div class="header-controls">
-        <select id="shape-select" class="compact-select">
-          <option value="rect" selected>📱 经典纵向</option>
-          <option value="heart">❤️ 心形点阵</option>
-          <option value="diamond">💎 钻石点阵</option>
-          <option value="donut">🍩 甜甜圈环</option>
-        </select>
-
-        <select id="difficulty-select" class="compact-select">
-          <option value="easy">🟢 简单</option>
-          <option value="medium" selected>🟡 中等</option>
-          <option value="hard">🔴 困难</option>
-        </select>
-
+        <button id="btn-theme-toggle" class="btn-icon-square" title="切换亮暗主题">
+          ☀️
+        </button>
         <button id="btn-mute" class="btn-icon-square" title="声音开关">
           🔊
         </button>
@@ -46,23 +45,41 @@
     <main class="main-content">
       <!-- 极简收纳状态与快捷条 (HUD) -->
       <div class="compact-hud-bar">
-        <!-- 状态与快捷动作行 -->
-        <div class="hud-status-row">
-          <div class="hud-stat-pill">
-            <span class="hud-icon">⏱️</span>
-            <span id="stat-time" class="hud-val">01:30</span>
+        <!-- 关卡配置与换局控制行 -->
+        <div class="hud-config-row">
+          <div class="hud-selectors">
+            <select id="shape-select" class="compact-select">
+              <option value="rect" selected>📱 经典纵向</option>
+              <option value="heart">❤️ 心形点阵</option>
+              <option value="diamond">💎 钻石点阵</option>
+              <option value="donut">🍩 甜甜圈环</option>
+            </select>
+
+            <select id="difficulty-select" class="compact-select">
+              <option value="easy">🟢 简单</option>
+              <option value="medium" selected>🟡 中等</option>
+              <option value="hard">🔴 困难</option>
+            </select>
           </div>
-          <div class="hud-stat-pill">
-            <span class="hud-label">剩余:</span>
-            <span id="stat-remaining" class="hud-val">0</span>
-          </div>
-          <span id="stat-moves" style="display: none;">0</span>
 
           <div class="hud-quick-actions">
             <button id="btn-new-game" class="btn-hud" title="换一局">🎲 换局</button>
             <button id="btn-undo" class="btn-hud" title="撤销一步">↩️ 撤销</button>
             <button id="btn-restart" class="btn-hud" title="重开本关">🔄 重开</button>
           </div>
+        </div>
+
+        <!-- 游戏状态统计行 (倒计时与剩余数量) -->
+        <div class="hud-status-row">
+          <div class="hud-stat-pill">
+            <span class="hud-icon">⏱️</span>
+            <span id="stat-time" class="hud-val">01:30</span>
+          </div>
+          <div class="hud-stat-pill">
+            <span class="hud-label">剩余箭头:</span>
+            <span id="stat-remaining" class="hud-val">0</span>
+          </div>
+          <span id="stat-moves" style="display: none;">0</span>
         </div>
 
         <!-- 解题与透视主控胶囊行 -->
@@ -97,10 +114,16 @@
         </button>
       </div>
 
-      <!-- 棋盘视口（纯白底实体画布，自适应居中） -->
+      <!-- 棋盘视口（自适应居中） -->
       <section class="board-viewport">
         <div id="board-container" class="board-container">
-          <!-- SVG 由 game.js 动态构建挂载 -->
+          <!-- 2D SVG 由 game.js 动态构建挂载于此 -->
+          <!-- 3D WebGL 视口画布与空间提示 -->
+          <div id="webgl-3d-container" class="webgl-3d-container" style="display: none;"></div>
+          <div id="hint-3d-overlay" class="hint-3d-overlay" style="display: none;">
+            <span class="hint-3d-text">🖱️ 拖拽旋转空间 · 滚轮缩放</span>
+            <button id="btn-reset-cam" class="btn-cam-reset" title="复位正面视角">🎯 复位视角</button>
+          </div>
         </div>
       </section>
     </main>

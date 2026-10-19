@@ -16,19 +16,18 @@ export const OPPOSITE = {
   right: 'left'
 };
 
-// 鲜艳高对比调色板（经典高饱和与明度）
+// 莫兰迪轻奢宝石调色板（北欧极简·大师级温润高对比，亮暗双模兼顾，白箭头对比度优异）
 export const ARROW_COLORS = [
-  '#18181b', // 纯黑
-  '#16a34a', // 翠绿
-  '#2563eb', // 宝石蓝
-  '#0284c7', // 天蓝
-  '#ea580c', // 亮橙
-  '#d97706', // 琥珀黄
-  '#9333ea', // 紫罗兰
-  '#db2777', // 玫红
-  '#854d0e', // 咖啡棕
-  '#64748b', // 烟灰
-  '#dc2626'  // 绯红
+  '#3b71ca', // 海蓝宝石 (Cerulean)
+  '#d95d48', // 温润珊瑚 (Terracotta)
+  '#2a9d8f', // 翡翠石青 (Forest Jade)
+  '#c78528', // 复古暖金 (Warm Ochre)
+  '#7c5295', // 幽兰紫檀 (Amethyst)
+  '#528b70', // 北欧灰绿 (Nordic Sage)
+  '#d06a28', // 琥珀焦橙 (Burnt Orange)
+  '#be466e', // 烟熏蔷薇 (Dusty Rose)
+  '#4361ee', // 极光靛蓝 (Deep Ultramarine)
+  '#475569'  // 青石墨韵 (Warm Slate)
 ];
 
 // 经典几何形状轮廓发生器
@@ -93,4 +92,73 @@ export const GAME_RULES = {
   PENALTY_SECONDS: 5,
   HOURGLASS_BONUS_SECONDS: 10,
   BASE_TIME_LIMIT: 130
+};
+
+// ==========================================
+// 3D 立体空间正交方向规范 (X:左右, Y:上下, Z:前后)
+// ==========================================
+export const DIRS_3D = {
+  right:   { dx: 1,  dy: 0,  dz: 0,  axis: 'x', sign: 1,  label: '右 (+X)' },
+  left:    { dx: -1, dy: 0,  dz: 0,  axis: 'x', sign: -1, label: '左 (-X)' },
+  up:      { dx: 0,  dy: 1,  dz: 0,  axis: 'y', sign: 1,  label: '上 (+Y)' },
+  down:    { dx: 0,  dy: -1, dz: 0,  axis: 'y', sign: -1, label: '下 (-Y)' },
+  forward: { dx: 0,  dy: 0,  dz: 1,  axis: 'z', sign: 1,  label: '前 (+Z)' },
+  back:    { dx: 0,  dy: 0,  dz: -1, axis: 'z', sign: -1, label: '后 (-Z)' }
+};
+
+export const DIR_3D_KEYS = ['right', 'left', 'up', 'down', 'forward', 'back'];
+
+export const OPPOSITE_3D = {
+  right: 'left',
+  left: 'right',
+  up: 'down',
+  down: 'up',
+  forward: 'back',
+  back: 'forward'
+};
+
+// 3D 空间立体造型发生器
+export const SHAPES_3D = {
+  cube: {
+    name: '🧊 经典立体魔方',
+    getDimensions: (diff) => {
+      if (diff === 'easy') return { sizeX: 4, sizeY: 4, sizeZ: 4 };
+      if (diff === 'medium') return { sizeX: 5, sizeY: 5, sizeZ: 5 };
+      return { sizeX: 6, sizeY: 6, sizeZ: 6 };
+    },
+    isInside: () => true
+  },
+  diamond3d: {
+    name: '💎 3D水晶八面体',
+    getDimensions: (diff) => {
+      if (diff === 'easy') return { sizeX: 5, sizeY: 5, sizeZ: 5 };
+      if (diff === 'medium') return { sizeX: 7, sizeY: 7, sizeZ: 7 };
+      return { sizeX: 7, sizeY: 7, sizeZ: 7 };
+    },
+    isInside: (x, y, z, sx, sy, sz) => {
+      const midX = (sx - 1) / 2;
+      const midY = (sy - 1) / 2;
+      const midZ = (sz - 1) / 2;
+      const maxDist = (Math.min(sx, sy, sz) / 2) * 1.15;
+      return (Math.abs(x - midX) + Math.abs(y - midY) + Math.abs(z - midZ)) <= maxDist;
+    }
+  },
+  heart3d: {
+    name: '❤️ 3D立体爱心',
+    getDimensions: (diff) => {
+      if (diff === 'easy') return { sizeX: 5, sizeY: 5, sizeZ: 5 };
+      if (diff === 'medium') return { sizeX: 7, sizeY: 7, sizeZ: 7 };
+      return { sizeX: 7, sizeY: 7, sizeZ: 7 };
+    },
+    isInside: (x, y, z, sx, sy, sz) => {
+      const midX = (sx - 1) / 2;
+      const midY = (sy - 1) * 0.45;
+      const midZ = (sz - 1) / 2;
+      const nx = (x - midX) / (sx * 0.38);
+      const ny = -(y - midY) / (sy * 0.42);
+      const nz = (z - midZ) / (sz * 0.38);
+      const r2 = nx * nx + nz * nz + ny * ny - 1;
+      return Math.pow(r2, 3) - (nx * nx + 0.1 * nz * nz) * (ny * ny * ny) <= 0.08;
+    }
+  }
 };
