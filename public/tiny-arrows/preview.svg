@@ -1,0 +1,209 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="100%" height="100%">
+  <defs>
+    <!-- 背景流光渐变 -->
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="50%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#090d16" />
+    </linearGradient>
+
+    <!-- 柔光背晕 -->
+    <radialGradient id="glow-cyan" cx="30%" cy="45%" r="65%">
+      <stop offset="0%" stop-color="#0284c7" stop-opacity="0.32" />
+      <stop offset="60%" stop-color="#0284c7" stop-opacity="0.05" />
+      <stop offset="100%" stop-color="#0284c7" stop-opacity="0" />
+    </radialGradient>
+
+    <radialGradient id="glow-gold" cx="75%" cy="30%" r="50%">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.28" />
+      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- 卡片与发光滤镜 -->
+    <filter id="board-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="24" stdDeviation="28" flood-color="#000000" flood-opacity="0.45" />
+      <feDropShadow dx="0" dy="4" stdDeviation="10" flood-color="#0284c7" flood-opacity="0.15" />
+    </filter>
+
+    <filter id="neon-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <filter id="gold-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- 点阵纹理 -->
+    <pattern id="dot-grid" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.2" fill="#334155" opacity="0.6" />
+    </pattern>
+  </defs>
+
+  <!-- 1. 背景层与点阵 -->
+  <rect width="800" height="500" fill="url(#bg-grad)" />
+  <rect width="800" height="500" fill="url(#glow-cyan)" />
+  <rect width="800" height="500" fill="url(#glow-gold)" />
+  <rect width="800" height="500" fill="url(#dot-grid)" opacity="0.75" />
+
+  <!-- 2. 主体：左侧悬浮拟物棋盘 -->
+  <g transform="translate(68, 48)">
+    <!-- 棋盘背板与阴影 -->
+    <rect x="0" y="0" width="360" height="404" rx="22" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" filter="url(#board-shadow)" />
+
+    <!-- 内部浅灰网格底纹 -->
+    <g opacity="0.25">
+      <line x1="40" y1="20" x2="40" y2="384" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 4" />
+      <line x1="80" y1="20" x2="80" y2="384" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 4" />
+      <line x1="120" y1="20" x2="120" y2="384" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 4" />
+      <line x1="160" y1="20" x2="160" y2="384" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 4" />
+      <line x1="200" y1="20" x2="200" y2="384" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 4" />
+      <line x1="240" y1="20" x2="240" y2="384" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 4" />
+      <line x1="280" y1="20" x2="280" y2="384" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 4" />
+      <line x1="320" y1="20" x2="320" y2="384" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 4" />
+    </g>
+
+    <!-- 盘面高密度多格折线箭头咬合阵列 -->
+    <g transform="translate(26, 26)">
+      <!-- 箭头 1: 绿色横向折线 -->
+      <polyline points="20,20 60,20 60,40" fill="none" stroke="#16a34a" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+      <polygon points="60,52 48,38 72,38" fill="#16a34a" />
+
+      <!-- 箭头 2: 纯黑台阶蛇形 -->
+      <polyline points="90,20 130,20 130,50 170,50" fill="none" stroke="#18181b" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+      <polygon points="182,50 168,40 168,60" fill="#18181b" />
+
+      <!-- 箭头 3: 亮橙直箭 -->
+      <polyline points="200,20 250,20" fill="none" stroke="#ea580c" stroke-width="12" stroke-linecap="round" />
+      <polygon points="262,20 248,10 248,30" fill="#ea580c" />
+
+      <!-- 箭头 4: 紫罗兰大L型 -->
+      <polyline points="20,80 20,130 70,130" fill="none" stroke="#9333ea" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+      <polygon points="82,130 68,120 68,140" fill="#9333ea" />
+
+      <!-- 箭头 5: 玫红 U 型回环 -->
+      <polyline points="100,90 140,90 140,140 90,140" fill="none" stroke="#db2777" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+      <polygon points="78,140 92,130 92,150" fill="#db2777" />
+
+      <!-- 箭头 6: 琥珀金台阶 -->
+      <polyline points="230,60 230,110 260,110 260,150" fill="none" stroke="#d97706" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+      <polygon points="260,162 248,148 272,148" fill="#d97706" />
+
+      <!-- 箭头 7: 宝石蓝长直箭 -->
+      <polyline points="170,90 170,160" fill="none" stroke="#2563eb" stroke-width="12" stroke-linecap="round" />
+      <polygon points="170,172 158,158 182,158" fill="#2563eb" />
+
+      <!-- 箭头 8: 绯红多折弯 -->
+      <polyline points="30,170 30,220 70,220 70,250" fill="none" stroke="#dc2626" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+      <polygon points="70,262 58,248 82,248" fill="#dc2626" />
+
+      <!-- 箭头 9: 烟灰台阶反插 -->
+      <polyline points="120,180 150,180 150,230 180,230" fill="none" stroke="#64748b" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+      <polygon points="192,230 178,220 178,240" fill="#64748b" />
+
+      <!-- 箭头 10: 咖啡棕回形 -->
+      <polyline points="210,190 250,190 250,240" fill="none" stroke="#854d0e" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+      <polygon points="250,252 238,238 262,238" fill="#854d0e" />
+
+      <!-- 箭头 11: 翠绿长折角 -->
+      <polyline points="80,290 130,290 130,330" fill="none" stroke="#16a34a" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+      <polygon points="130,342 118,328 142,328" fill="#16a34a" />
+
+      <!-- 箭头 12: 纯黑底边直箭 -->
+      <polyline points="170,300 230,300" fill="none" stroke="#18181b" stroke-width="12" stroke-linecap="round" />
+      <polygon points="242,300 228,290 228,310" fill="#18181b" />
+
+      <!-- 道具：金色呼吸时间漏斗 (带虚线微光环) -->
+      <g transform="translate(195, 110)">
+        <circle r="16" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="3.5 2" filter="url(#gold-glow)" />
+        <text y="6" text-anchor="middle" font-size="16">⏳</text>
+      </g>
+      <g transform="translate(50, 290)">
+        <circle r="14" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="3 2" />
+        <text y="5" text-anchor="middle" font-size="14">⏳</text>
+      </g>
+    </g>
+
+    <!-- 动态穿梭流光特效：一枚天蓝高亮箭头破框飞出 -->
+    <g transform="translate(26, 26)">
+      <!-- 发射引导镭射虚线 -->
+      <line x1="220" y1="120" x2="340" y2="40" stroke="#06b6d4" stroke-width="2.5" stroke-dasharray="5 3" opacity="0.8" />
+      <!-- 穿梭飞驰箭头 -->
+      <polyline points="240,110 270,90 300,70" fill="none" stroke="#0284c7" stroke-width="13" stroke-linecap="round" stroke-linejoin="round" filter="url(#neon-glow)" />
+      <polygon points="314,60 292,62 305,79" fill="#0284c7" filter="url(#neon-glow)" />
+      <!-- 拾取加时飘字气泡 -->
+      <rect x="250" y="4" width="56" height="24" rx="12" fill="#ea580c" filter="url(#board-shadow)" />
+      <text x="278" y="20" text-anchor="middle" font-family="-apple-system, sans-serif" font-size="12" font-weight="900" fill="#ffffff">+10s</text>
+    </g>
+  </g>
+
+  <!-- 3. 右侧精装品牌与特性展示区 -->
+  <g transform="translate(470, 75)">
+    <!-- 顶部标签徽章 -->
+    <rect x="0" y="0" width="138" height="28" rx="14" fill="rgba(14, 165, 233, 0.15)" stroke="rgba(56, 189, 248, 0.4)" stroke-width="1" />
+    <text x="69" y="18" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="11" font-weight="700" fill="#38bdf8" letter-spacing="1.2">
+      PURE PUZZLE
+    </text>
+
+    <!-- 主标题 -->
+    <text x="0" y="78" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif" font-size="44" font-weight="900" fill="#ffffff" letter-spacing="1">
+      小小箭头
+    </text>
+
+    <!-- 英文副标题 -->
+    <text x="2" y="110" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="17" font-weight="800" fill="#94a3b8" letter-spacing="5">
+      TINY ARROWS
+    </text>
+
+    <!-- 装饰金线 -->
+    <rect x="2" y="130" width="60" height="3" rx="1.5" fill="#38bdf8" />
+
+    <!-- 亮点特性胶囊卡片 -->
+    <g transform="translate(0, 155)">
+      <!-- 特性 1 -->
+      <g transform="translate(0, 0)">
+        <rect width="255" height="42" rx="10" fill="rgba(30, 41, 59, 0.75)" stroke="rgba(71, 85, 105, 0.4)" stroke-width="1" />
+        <circle cx="22" cy="21" r="10" fill="rgba(14, 165, 233, 0.2)" />
+        <text x="22" y="25" text-anchor="middle" font-size="12">🎯</text>
+        <text x="42" y="26" font-family="-apple-system, sans-serif" font-size="13" font-weight="700" fill="#f1f5f9">
+          正交多格折线 · 紧密咬合
+        </text>
+      </g>
+
+      <!-- 特性 2 -->
+      <g transform="translate(0, 52)">
+        <rect width="255" height="42" rx="10" fill="rgba(30, 41, 59, 0.75)" stroke="rgba(71, 85, 105, 0.4)" stroke-width="1" />
+        <circle cx="22" cy="21" r="10" fill="rgba(245, 158, 11, 0.2)" />
+        <text x="22" y="25" text-anchor="middle" font-size="12">⏳</text>
+        <text x="42" y="26" font-family="-apple-system, sans-serif" font-size="13" font-weight="700" fill="#f1f5f9">
+          时光倒流撤销 · 漏斗加时
+        </text>
+      </g>
+
+      <!-- 特性 3 -->
+      <g transform="translate(0, 104)">
+        <rect width="255" height="42" rx="10" fill="rgba(30, 41, 59, 0.75)" stroke="rgba(71, 85, 105, 0.4)" stroke-width="1" />
+        <circle cx="22" cy="21" r="10" fill="rgba(239, 68, 68, 0.2)" />
+        <text x="22" y="25" text-anchor="middle" font-size="12">⚡</text>
+        <text x="42" y="26" font-family="-apple-system, sans-serif" font-size="13" font-weight="700" fill="#f1f5f9">
+          心流极速解题 · 碰撞扣时
+        </text>
+      </g>
+    </g>
+
+    <!-- 底部行动唤起胶囊按钮 -->
+    <g transform="translate(0, 328)">
+      <rect width="255" height="44" rx="22" fill="linear-gradient(135deg, #0284c7, #2563eb)" filter="url(#board-shadow)" />
+      <text x="127" y="27" text-anchor="middle" font-family="-apple-system, sans-serif" font-size="14" font-weight="800" fill="#ffffff" letter-spacing="1">
+        立即体验 · 开始游戏 →
+      </text>
+    </g>
+  </g>
+</svg>

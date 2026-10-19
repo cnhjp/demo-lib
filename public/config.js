@@ -77,4 +77,13 @@ const demos = [
     link: "/image-transformer",
     buttonClass: "bg-cyan-500 hover:bg-cyan-600",
   },
+  {
+    title: "小小箭头 (Tiny Arrows)",
+    description:
+      "实体多格折线箭头益智解谜。纯白底高密度咬合、正交实心连续色带与锐利三角箭头，支持直线、L型、U型、台阶型与多阶蛇形滑行射出；具备时光倒流逆向撤销、动态非线性极速解题、时间漏斗贯穿加时与碰撞扣时机制。",
+    imageUrl: "/tiny-arrows/preview.svg",
+    altText: "小小箭头游戏预览图",
+    link: "/tiny-arrows",
+    buttonClass: "bg-blue-600 hover:bg-blue-700",
+  },
 ];

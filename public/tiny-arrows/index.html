@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>小小箭头 · 实体多格折线消除</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <!-- 顶部导航栏 -->
+    <!-- 极简单行顶部导航栏 -->
+    <header class="game-header">
+      <div class="brand">
+        <a href="/" class="back-link" title="返回展厅">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+          <span>展厅</span>
+        </a>
+        <h1 class="game-title">小小箭头</h1>
+      </div>
+
+      <!-- 选项与控制 (单行紧凑排列) -->
+      <div class="header-controls">
+        <select id="shape-select" class="compact-select">
+          <option value="rect" selected>📱 经典纵向</option>
+          <option value="heart">❤️ 心形点阵</option>
+          <option value="diamond">💎 钻石点阵</option>
+          <option value="donut">🍩 甜甜圈环</option>
+        </select>
+
+        <select id="difficulty-select" class="compact-select">
+          <option value="easy">🟢 简单</option>
+          <option value="medium" selected>🟡 中等</option>
+          <option value="hard">🔴 困难</option>
+        </select>
+
+        <button id="btn-mute" class="btn-icon-square" title="声音开关">
+          🔊
+        </button>
+      </div>
+    </header>
+
+    <!-- 主游戏区域 (100vh 自适应纯净视口) -->
+    <main class="main-content">
+      <!-- 极简收纳状态与快捷条 (HUD) -->
+      <div class="compact-hud-bar">
+        <!-- 状态与快捷动作行 -->
+        <div class="hud-status-row">
+          <div class="hud-stat-pill">
+            <span class="hud-icon">⏱️</span>
+            <span id="stat-time" class="hud-val">01:30</span>
+          </div>
+          <div class="hud-stat-pill">
+            <span class="hud-label">剩余:</span>
+            <span id="stat-remaining" class="hud-val">0</span>
+          </div>
+          <span id="stat-moves" style="display: none;">0</span>
+
+          <div class="hud-quick-actions">
+            <button id="btn-new-game" class="btn-hud" title="换一局">🎲 换局</button>
+            <button id="btn-undo" class="btn-hud" title="撤销一步">↩️ 撤销</button>
+            <button id="btn-restart" class="btn-hud" title="重开本关">🔄 重开</button>
+          </div>
+        </div>
+
+        <!-- 解题与透视主控胶囊行 -->
+        <div class="hud-action-row">
+          <button id="btn-hint" class="btn-action btn-hint" title="高亮下一个可射出箭头的完整发射轨迹">
+            💡 提示
+          </button>
+          <button id="btn-toggle-eye" class="btn-action btn-eye" title="高亮当前所有无阻挡可射出的箭头">
+            👁️ 透视: <span id="eye-status-text">关</span>
+          </button>
+          <button id="btn-autosolve" class="btn-action btn-autosolve" title="智能自动按顺序清空所有箭头">
+            ⚡ 一键解题
+          </button>
+        </div>
+
+        <!-- 极细能量进度条 -->
+        <div class="timer-bar-track">
+          <div id="timer-bar-fill" class="timer-bar-fill"></div>
+        </div>
+      </div>
+
+      <!-- 一键解题浮动控制条（执行解题时激活） -->
+      <div id="autosolve-panel" class="autosolve-panel">
+        <span style="font-size: 12px; font-weight: 700; color: #2563eb;">⚡ 智能演示中...</span>
+        <div class="speed-control">
+          <span>速度:</span>
+          <input id="speed-slider" type="range" min="60" max="380" value="280" />
+          <span id="speed-value-text">2.8x</span>
+        </div>
+        <button id="btn-stop-auto" class="btn-icon" style="padding: 2px 8px; font-size: 11px; background: #ef4444; border: none; color: #fff;">
+          ⏹️ 停止
+        </button>
+      </div>
+
+      <!-- 棋盘视口（纯白底实体画布，自适应居中） -->
+      <section class="board-viewport">
+        <div id="board-container" class="board-container">
+          <!-- SVG 由 game.js 动态构建挂载 -->
+        </div>
+      </section>
+    </main>
+
+    <!-- 通关结算弹窗 -->
+    <div id="win-modal" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-icon">🎉</div>
+        <h2 class="modal-title">通关大捷！</h2>
+        <p id="win-desc" class="modal-desc">恭喜你清空了所有折线箭头！</p>
+        <div class="modal-actions">
+          <button id="btn-modal-new-game" class="btn-icon btn-primary" style="padding: 10px 28px;">
+            再来一局
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 超时失败弹窗 -->
+    <div id="gameover-modal" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-icon">⏰</div>
+        <h2 class="modal-title" style="color: #ef4444;">时间用尽！</h2>
+        <p class="modal-desc">倒计时已归零，折线迷宫未能在时限内解开。</p>
+        <div class="modal-actions">
+          <button id="btn-add-time" class="btn-icon btn-primary" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+            ⏱️ +30s 续关挑战
+          </button>
+          <button id="btn-retry" class="btn-icon">
+            🔄 重试本关
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 全屏破框射出飞行图层 -->
+    <div id="fullscreen-flight-overlay"></div>
+
+    <!-- 核心逻辑脚本 (ES Module 模块化架构) -->
+    <script type="module" src="./game.js"></script>
+  </body>
+</html>
