@@ -1,7 +1,11 @@
 .vercel
-.gemini
-.vercel
 .tmp/
+
+# 先取消全局对 .gemini/ 目录的忽略，再精细忽略内部临时缓存
+!.gemini/
+.gemini/*
+!.gemini/GEMINI.md
+!.gemini/learnings/
 
 node_modules/
 pnpm-lock.yaml
