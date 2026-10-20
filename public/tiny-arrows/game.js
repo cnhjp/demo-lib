@@ -397,6 +397,25 @@ class TinyArrowsGame {
       arrow.geometry = geom;
       arrow.groupEl = g;
 
+      // 1. 底层透明加宽触控热区折线 (覆盖整格宽度，极大提升点击命中率)
+      const hitPolyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      hitPolyline.setAttribute('class', 'arrow-hitbox');
+      hitPolyline.setAttribute('points', geom.shaftPointsStr);
+      hitPolyline.setAttribute('fill', 'none');
+      hitPolyline.setAttribute('stroke', 'transparent');
+      hitPolyline.setAttribute('stroke-width', Math.max(S * 1.25, 24));
+      hitPolyline.setAttribute('stroke-linecap', 'round');
+      hitPolyline.setAttribute('stroke-linejoin', 'round');
+
+      // 2. 箭首透明加大触控圆
+      const hitHead = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      hitHead.setAttribute('class', 'arrow-head-hitbox');
+      hitHead.setAttribute('cx', geom.headGeometry.tipX);
+      hitHead.setAttribute('cy', geom.headGeometry.tipY);
+      hitHead.setAttribute('r', Math.max(S * 0.75, 16));
+      hitHead.setAttribute('fill', 'transparent');
+
+      // 3. 正常可视箭身与箭首
       const body = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
       body.setAttribute('class', 'arrow-body');
       body.setAttribute('points', geom.shaftPointsStr);
@@ -409,6 +428,8 @@ class TinyArrowsGame {
       head.setAttribute('points', geom.headPointsStr);
       head.setAttribute('fill', arrow.color);
 
+      g.appendChild(hitPolyline);
+      g.appendChild(hitHead);
       g.appendChild(body);
       g.appendChild(head);
       g.addEventListener('click', () => this.handleArrowShoot(arrow.id));
@@ -426,7 +447,7 @@ class TinyArrowsGame {
     if (this.solver.isAutoSolving || this.isRewinding) return;
 
     const arrow = this.arrows.find(a => a.id === arrowId);
-    if (!arrow) return;
+    if (!arrow || arrow.isShooting) return;
 
     // === 3D 模式射出检测 ===
     if (this.mode === '3d') {
@@ -447,6 +468,7 @@ class TinyArrowsGame {
         this.updateStats();
         if (this.timeLeft <= 0) this.handleTimeout();
       } else {
+        arrow.isShooting = true;
         this.sound.playWhoosh();
         this.moves++;
         this.history.push({ ...arrow, cells: [...arrow.cells] });
@@ -487,6 +509,7 @@ class TinyArrowsGame {
 
       if (this.timeLeft <= 0) this.handleTimeout();
     } else {
+      arrow.isShooting = true;
       this.sound.playWhoosh();
       this.moves++;
 

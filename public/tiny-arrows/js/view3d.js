@@ -378,15 +378,53 @@ export class View3D {
     this.raycaster.setFromCamera(this.mouse, this.camera);
     const intersects = this.raycaster.intersectObjects(this.scene.children, true);
 
+    let arrowId = null;
     if (intersects.length > 0) {
       let target = intersects[0].object;
       while (target && !target.userData?.arrowId && target.parent) {
         target = target.parent;
       }
-      if (target && target.userData?.arrowId) {
-        this.onArrowClick?.(target.userData.arrowId);
+      if (target && target.userData?.arrowId && this.arrowGroups.has(target.userData.arrowId)) {
+        arrowId = target.userData.arrowId;
       }
     }
+
+    // 若未直接点中 Mesh，通过邻近射线容差吸附判定 (扩大 3D 箭头点击热区)
+    if (!arrowId) {
+      arrowId = this.findNearestArrow();
+    }
+
+    if (arrowId) {
+      this.onArrowClick?.(arrowId);
+    }
+  }
+
+  // 计算距离射线最近的有效箭头，支持容差吸附点击
+  findNearestArrow(threshold = this.spacing * 0.7) {
+    let nearestId = null;
+    let minDist = threshold;
+    let minRayDist = Infinity;
+    const THREE = window.THREE;
+    if (!THREE) return null;
+
+    for (const [arrowId, group] of this.arrowGroups.entries()) {
+      const arrow = group.userData?.arrow;
+      if (!arrow || !arrow.cells || group.userData?.isShooting) continue;
+      for (const cell of arrow.cells) {
+        const { wx, wy, wz } = this.getVoxelWorldPos(cell.x, cell.y, cell.z, this.sizeX, this.sizeY, this.sizeZ);
+        const cellPos = new THREE.Vector3(wx, wy, wz);
+        const dist = this.raycaster.ray.distanceToPoint(cellPos);
+        if (dist < threshold) {
+          const projDist = this.raycaster.ray.origin.distanceTo(cellPos);
+          if (dist < minDist || (Math.abs(dist - minDist) < 0.25 && projDist < minRayDist)) {
+            minDist = dist;
+            minRayDist = projDist;
+            nearestId = arrowId;
+          }
+        }
+      }
+    }
+    return nearestId;
   }
 
   handleHover(e) {
@@ -403,9 +441,14 @@ export class View3D {
       while (target && !target.userData?.arrowId && target.parent) {
         target = target.parent;
       }
-      if (target && target.userData?.arrowId) {
+      if (target && target.userData?.arrowId && this.arrowGroups.has(target.userData.arrowId)) {
         foundId = target.userData.arrowId;
       }
+    }
+
+    // 悬停同样支持邻近吸附，与点击反馈手感保持一致
+    if (!foundId) {
+      foundId = this.findNearestArrow();
     }
 
     if (foundId !== this.hoveredArrowId) {
@@ -465,6 +508,7 @@ export class View3D {
   animateShootOut(arrowId, onComplete, duration = 320) {
     const group = this.arrowGroups.get(arrowId);
     if (!group) { onComplete?.(); return; }
+    group.userData.isShooting = true;
 
     const arrow = group.userData.arrow;
     const cellMeshes = group.userData.cellMeshes || [];

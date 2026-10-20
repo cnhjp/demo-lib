@@ -71,6 +71,7 @@
   padding: 0;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent !important;
 }
 
 html, body {
@@ -499,7 +500,21 @@ body {
   max-width: min(92vw, 540px);
   height: auto;
   width: auto;
+  cursor: default;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* 箭头透明加宽触控热区 */
+.arrow-hitbox {
   cursor: pointer;
+  pointer-events: stroke;
+}
+
+.arrow-head-hitbox {
+  cursor: pointer;
+  pointer-events: fill;
 }
 
 /* 箭头 SVG 元素 */
