@@ -1,8 +1,9 @@
 // ==========================================
-// 3D 空间立体多格体素关卡生成器
+// 3D 空间立体多格体素关卡生成器 (DAG 定向互锁反推链体系)
 // ==========================================
 
 import { DIRS_3D, DIR_3D_KEYS, OPPOSITE_3D, ARROW_COLORS, SHAPES_3D } from './constants.js';
+import { findMovableArrows3D } from './physics3d.js';
 
 // 获取指定 3D 方向的正交方向集合（在剩余 2 个维度上的 4 个方向）
 function getOrthogonal3D(dirKey) {
@@ -37,10 +38,10 @@ export function generateLevel3D({ shapeKey = 'cube', difficulty = 'medium' } = {
     }
   }
 
-  let totalTime = 130;
-  if (difficulty === 'easy') totalTime = 100;
-  else if (difficulty === 'medium') totalTime = 150;
-  else totalTime = 200;
+  let totalTime = 105;
+  if (difficulty === 'easy') totalTime = 80;
+  else if (difficulty === 'medium') totalTime = 105;
+  else totalTime = 135;
 
   const occupied = new Set();
   const voxelKey = (x, y, z) => `${x},${y},${z}`;
@@ -62,21 +63,66 @@ export function generateLevel3D({ shapeKey = 'cube', difficulty = 'medium' } = {
     return true;
   };
 
+  // 检查从当前体素朝 dirKey 方向发射是否能命中已有体素（用于构建闭环拦截）
+  const rayHitsOccupied3D = (head, dirKey) => {
+    const { dx, dy, dz } = DIRS_3D[dirKey];
+    let cx = head.x + dx;
+    let cy = head.y + dy;
+    let cz = head.z + dz;
+
+    while (cx >= 0 && cx < sizeX && cy >= 0 && cy < sizeY && cz >= 0 && cz < sizeZ) {
+      if (occupied.has(voxelKey(cx, cy, cz))) return true;
+      cx += dx;
+      cy += dy;
+      cz += dz;
+    }
+    return false;
+  };
+
+  // 验证拓扑完全可解性 (DAG 拓扑剥离检查)
+  const isFullySolvable3D = (arrows) => {
+    let rem = [...arrows];
+    while (rem.length > 0) {
+      const clear = findMovableArrows3D(rem, sizeX, sizeY, sizeZ);
+      if (clear.length === 0) return false;
+      rem = rem.filter(a => !clear.includes(a));
+    }
+    return true;
+  };
+
   const createdArrows = [];
   let arrowId = 0;
 
-  // 尝试在 head 处生长一条至少 2 格、可解的 3D 折线体素蛇
-  const tryGrowStructuredArrow3D = (head, allowTurns) => {
-    const validDirs = DIR_3D_KEYS.filter(d => isRayClear3D(head, d));
-    if (validDirs.length === 0) return null;
+  // 尝试在 head 处生长一条修长、具备三维立体扭转折角的体素蛇（箭尖与身体严格共线同向）
+  const tryGrowStructuredArrow3D = (head, allowTurns, forceBlocked = false) => {
+    let candidateDirs = DIR_3D_KEYS.filter(d => {
+      const opp = OPPOSITE_3D[d];
+      const nx = head.x + DIRS_3D[opp].dx;
+      const ny = head.y + DIRS_3D[opp].dy;
+      const nz = head.z + DIRS_3D[opp].dz;
+      return isVoxelValid(nx, ny, nz) && !occupied.has(voxelKey(nx, ny, nz));
+    });
+    if (candidateDirs.length === 0) return null;
 
-    const chosenDir = validDirs[Math.floor(Math.random() * validDirs.length)];
+    if (forceBlocked) {
+      const blockedDirs = candidateDirs.filter(d => rayHitsOccupied3D(head, d));
+      if (blockedDirs.length > 0) {
+        candidateDirs = blockedDirs;
+      } else {
+        return null;
+      }
+    } else {
+      const clearDirs = candidateDirs.filter(d => isRayClear3D(head, d));
+      if (clearDirs.length > 0) candidateDirs = clearDirs;
+    }
+
+    const chosenDir = candidateDirs[Math.floor(Math.random() * candidateDirs.length)];
     const body = [{ x: head.x, y: head.y, z: head.z }];
     const bodySet = new Set([voxelKey(head.x, head.y, head.z)]);
 
     let curr = { ...head };
     let seg1Dir = OPPOSITE_3D[chosenDir];
-    const seg1Target = Math.floor(Math.random() * 2) + 2; // 2 ~ 3 格
+    const seg1Target = Math.floor(Math.random() * 3) + 2; // 2 ~ 4 格长臂
 
     for (let s = 1; s < seg1Target; s++) {
       const nx = curr.x + DIRS_3D[seg1Dir].dx;
@@ -94,8 +140,8 @@ export function generateLevel3D({ shapeKey = 'cube', difficulty = 'medium' } = {
 
     if (body.length < 2) return null;
 
-    // 可选 3D 转折 1
-    if (allowTurns >= 1 && Math.random() < 0.65) {
+    // 可选 3D 转折 1 (跨轴正交转折)
+    if (allowTurns >= 1 && Math.random() < 0.78) {
       const ortho1 = getOrthogonal3D(seg1Dir).sort(() => Math.random() - 0.5);
       for (const d2 of ortho1) {
         const x1 = curr.x + DIRS_3D[d2].dx;
@@ -121,8 +167,8 @@ export function generateLevel3D({ shapeKey = 'cube', difficulty = 'medium' } = {
             bodySet.add(k2);
             curr = { x: x2, y: y2, z: z2 };
 
-            // 可选 3D 转折 2 (立体三维台阶)
-            if (allowTurns >= 2 && Math.random() < 0.5) {
+            // 可选 3D 转折 2 (向第 3 个正交轴空间扭转，形成立体鲁班锁结构)
+            if (allowTurns >= 2 && Math.random() < 0.65) {
               const ortho2 = getOrthogonal3D(d2).sort(() => Math.random() - 0.5);
               for (const d3 of ortho2) {
                 const tx1 = curr.x + DIRS_3D[d3].dx;
@@ -134,6 +180,17 @@ export function generateLevel3D({ shapeKey = 'cube', difficulty = 'medium' } = {
                     isVoxelValid(tx1, ty1, tz1) && !occupied.has(tk1) && !bodySet.has(tk1)) {
                   body.push({ x: tx1, y: ty1, z: tz1 });
                   bodySet.add(tk1);
+                  curr = { x: tx1, y: ty1, z: tz1 };
+
+                  const tx2 = curr.x + DIRS_3D[d3].dx;
+                  const ty2 = curr.y + DIRS_3D[d3].dy;
+                  const tz2 = curr.z + DIRS_3D[d3].dz;
+                  const tk2 = voxelKey(tx2, ty2, tz2);
+                  if (tx2 >= 0 && tx2 < sizeX && ty2 >= 0 && ty2 < sizeY && tz2 >= 0 && tz2 < sizeZ &&
+                      isVoxelValid(tx2, ty2, tz2) && !occupied.has(tk2) && !bodySet.has(tk2)) {
+                    body.push({ x: tx2, y: ty2, z: tz2 });
+                    bodySet.add(tk2);
+                  }
                   break;
                 }
               }
@@ -149,41 +206,84 @@ export function generateLevel3D({ shapeKey = 'cube', difficulty = 'medium' } = {
     arrowId++;
     const cells = [...body].reverse();
     const color = ARROW_COLORS[(arrowId - 1) % ARROW_COLORS.length];
-
-    cells.forEach(pt => occupied.add(voxelKey(pt.x, pt.y, pt.z)));
-
-    return {
+    const arrowObj = {
       id: arrowId,
       color,
       head: { x: head.x, y: head.y, z: head.z, dir: chosenDir },
       cells
     };
+
+    cells.forEach(pt => occupied.add(voxelKey(pt.x, pt.y, pt.z)));
+    createdArrows.push(arrowObj);
+
+    // 拓扑可解性校验：一旦导致死锁立即回滚
+    if (!isFullySolvable3D(createdArrows)) {
+      cells.forEach(pt => occupied.delete(voxelKey(pt.x, pt.y, pt.z)));
+      createdArrows.pop();
+      arrowId--;
+      return null;
+    }
+
+    return arrowObj;
   };
 
-  // Pass 1: 中心向外深度立体生长 (多折线长蛇)
-  const centerCandidates = [...allValidVoxels].sort((a, b) => a.dist - b.dist + (Math.random() - 0.5) * 2);
-  for (const pt of centerCandidates) {
+  // 外表面体素判别 (用于布设唯一的先锋开局钥匙)
+  const isSurfaceVoxel = (x, y, z) => {
+    for (const d of DIR_3D_KEYS) {
+      const nx = x + DIRS_3D[d].dx;
+      const ny = y + DIRS_3D[d].dy;
+      const nz = z + DIRS_3D[d].dz;
+      if (nx < 0 || nx >= sizeX || ny < 0 || ny >= sizeY || nz < 0 || nz >= sizeZ || !isVoxelValid(nx, ny, nz)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Pass 1: 【外表面先锋钥匙布设】严格放置 2 ~ 3 支无阻挡发射钥匙（全盘仅有破局突破口）
+  const targetKeyCount = (difficulty === 'easy' ? 4 : (difficulty === 'medium' ? 3 : 2));
+  const surfaceCandidates = allValidVoxels
+    .filter(pt => isSurfaceVoxel(pt.x, pt.y, pt.z))
+    .sort(() => Math.random() - 0.5);
+
+  let placedKeys = 0;
+  for (const pt of surfaceCandidates) {
     if (!occupied.has(voxelKey(pt.x, pt.y, pt.z))) {
-      const arrow = tryGrowStructuredArrow3D(pt, 2);
-      if (arrow) createdArrows.push(arrow);
+      const a = tryGrowStructuredArrow3D(pt, 1, false);
+      if (a) {
+        placedKeys++;
+        if (placedKeys >= targetKeyCount) break;
+      }
     }
   }
 
-  // Pass 2: 缝隙多向填充 (L型折角)
-  const remainingPass2 = allValidVoxels.filter(pt => !occupied.has(voxelKey(pt.x, pt.y, pt.z))).sort(() => Math.random() - 0.5);
-  for (const pt of remainingPass2) {
+  // Pass 2: 【全空间深度鲁班互锁填充】强制面向已有体素阻挡拦截 (多折角立体长蛇)
+  const remPass2 = allValidVoxels
+    .filter(pt => !occupied.has(voxelKey(pt.x, pt.y, pt.z)))
+    .sort(() => Math.random() - 0.5);
+  for (const pt of remPass2) {
     if (!occupied.has(voxelKey(pt.x, pt.y, pt.z))) {
-      const arrow = tryGrowStructuredArrow3D(pt, 1);
-      if (arrow) createdArrows.push(arrow);
+      tryGrowStructuredArrow3D(pt, 2, true);
     }
   }
 
-  // Pass 3: 边界紧凑碎块填充 (2格直线)
-  const remainingPass3 = allValidVoxels.filter(pt => !occupied.has(voxelKey(pt.x, pt.y, pt.z))).sort(() => Math.random() - 0.5);
-  for (const pt of remainingPass3) {
+  // Pass 3: 【多折角立体缝隙咬合】
+  const remPass3 = allValidVoxels
+    .filter(pt => !occupied.has(voxelKey(pt.x, pt.y, pt.z)))
+    .sort(() => Math.random() - 0.5);
+  for (const pt of remPass3) {
     if (!occupied.has(voxelKey(pt.x, pt.y, pt.z))) {
-      const arrow = tryGrowStructuredArrow3D(pt, 0);
-      if (arrow) createdArrows.push(arrow);
+      tryGrowStructuredArrow3D(pt, 1, true);
+    }
+  }
+
+  // Pass 4: 【最终紧凑碎隙填充】
+  const remPass4 = allValidVoxels
+    .filter(pt => !occupied.has(voxelKey(pt.x, pt.y, pt.z)))
+    .sort(() => Math.random() - 0.5);
+  for (const pt of remPass4) {
+    if (!occupied.has(voxelKey(pt.x, pt.y, pt.z))) {
+      tryGrowStructuredArrow3D(pt, 0, true);
     }
   }
 

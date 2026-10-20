@@ -40,13 +40,13 @@ export function generateLevel({ shapeKey = 'rect', difficulty = 'medium' } = {})
     }
   }
 
-  let totalTime = 130;
+  let totalTime = 85;
   if (difficulty === 'easy') {
-    totalTime = 90;
+    totalTime = 70;
   } else if (difficulty === 'medium') {
-    totalTime = 130;
+    totalTime = 85;
   } else {
-    totalTime = 180;
+    totalTime = 105;
   }
 
   const occupied = new Set();
@@ -66,25 +66,62 @@ export function generateLevel({ shapeKey = 'rect', difficulty = 'medium' } = {})
     return true;
   };
 
-  // 核心：大跨度折角生成（段跨度 ≥ 2，确保折角舒展明显）
-  const tryGrowStructuredArrow = (head, allowTurns) => {
-    const validDirs = DIR_KEYS.filter(d => isRayClear(head, d));
-    if (validDirs.length === 0) return null;
+  const rayHitsOccupied = (head, dir) => {
+    const { dr, dc } = DIRS[dir];
+    let cr = head.r + dr;
+    let cc = head.c + dc;
+    while (cr >= 0 && cr < rows && cc >= 0 && cc < cols) {
+      if (occupied.has(`${cr},${cc}`)) return true;
+      cr += dr;
+      cc += dc;
+    }
+    return false;
+  };
 
-    const chosenDir = validDirs[Math.floor(Math.random() * validDirs.length)];
+  const isFullySolvable = (arrows) => {
+    let rem = [...arrows];
+    while (rem.length > 0) {
+      const clear = findMovableArrows(rem, rows, cols);
+      if (clear.length === 0) return false;
+      rem = rem.filter(a => !clear.includes(a));
+    }
+    return true;
+  };
+
+  // 核心：大跨度多折角 DAG 生成（段跨度 2~4 格，形态舒展大方，箭首与身体严格共线同向）
+  const tryGrowStructuredArrow = (head, allowTurns, forceBlocked = false) => {
+    let candidateDirs = DIR_KEYS.filter(d => {
+      const opp = getOpposite(d);
+      const nr = head.r + DIRS[opp].dr;
+      const nc = head.c + DIRS[opp].dc;
+      return isCellValid(nr, nc) && !occupied.has(`${nr},${nc}`);
+    });
+    if (candidateDirs.length === 0) return null;
+
+    if (forceBlocked) {
+      const blockedDirs = candidateDirs.filter(d => rayHitsOccupied(head, d));
+      if (blockedDirs.length > 0) {
+        candidateDirs = blockedDirs;
+      } else {
+        return null;
+      }
+    } else {
+      const clearDirs = candidateDirs.filter(d => isRayClear(head, d));
+      if (clearDirs.length > 0) candidateDirs = clearDirs;
+    }
+
+    const chosenDir = candidateDirs[Math.floor(Math.random() * candidateDirs.length)];
     const body = [{ r: head.r, c: head.c }];
     const bodySet = new Set([`${head.r},${head.c}`]);
 
     let currCell = head;
     let seg1Dir = getOpposite(chosenDir);
-    // 第一段：至少走 2~3 格（形成明显的长臂）
-    const seg1Target = Math.floor(Math.random() * 2) + 2;
+    const seg1Target = Math.floor(Math.random() * 3) + 2;
 
     for (let s = 1; s < seg1Target; s++) {
       const nr = currCell.r + DIRS[seg1Dir].dr;
       const nc = currCell.c + DIRS[seg1Dir].dc;
-      if (nr < 0 || nr >= rows || nc < 0 || nc >= cols || !isCellValid(nr, nc)) break;
-      if (occupied.has(`${nr},${nc}`) || bodySet.has(`${nr},${nc}`)) break;
+      if (!isCellValid(nr, nc) || occupied.has(`${nr},${nc}`) || bodySet.has(`${nr},${nc}`)) break;
 
       body.push({ r: nr, c: nc });
       bodySet.add(`${nr},${nc}`);
@@ -93,44 +130,40 @@ export function generateLevel({ shapeKey = 'rect', difficulty = 'medium' } = {})
 
     if (body.length < 2) return null;
 
-    // 可选转折 1：至少转折走 2 格（构成清晰大方的 L 型）
-    if (allowTurns >= 1 && Math.random() < 0.68) {
+    // 可选转折 1：高概率形成 L 型或拐角（大跨度 2~3 格）
+    if (allowTurns >= 1 && Math.random() < 0.78) {
       const ortho1 = getOrthogonal(seg1Dir).sort(() => Math.random() - 0.5);
       for (const d2 of ortho1) {
         const r1 = currCell.r + DIRS[d2].dr;
         const c1 = currCell.c + DIRS[d2].dc;
-        const r2 = r1 + DIRS[d2].dr;
-        const c2 = c1 + DIRS[d2].dc;
         const k1 = `${r1},${c1}`;
-        const k2 = `${r2},${c2}`;
-
-        if (r1 >= 0 && r1 < rows && c1 >= 0 && c1 < cols && isCellValid(r1, c1) && !occupied.has(k1) && !bodySet.has(k1)) {
+        if (isCellValid(r1, c1) && !occupied.has(k1) && !bodySet.has(k1)) {
           body.push({ r: r1, c: c1 });
           bodySet.add(k1);
           currCell = { r: r1, c: c1 };
-
-          // 成功延伸第 2 格
-          if (r2 >= 0 && r2 < rows && c2 >= 0 && c2 < cols && isCellValid(r2, c2) && !occupied.has(k2) && !bodySet.has(k2)) {
+          const r2 = currCell.r + DIRS[d2].dr;
+          const c2 = currCell.c + DIRS[d2].dc;
+          const k2 = `${r2},${c2}`;
+          if (isCellValid(r2, c2) && !occupied.has(k2) && !bodySet.has(k2)) {
             body.push({ r: r2, c: c2 });
             bodySet.add(k2);
             currCell = { r: r2, c: c2 };
 
-            // 可选转折 2：至少再走 2 格（构成明显的 Z型台阶 或 U型回环）
-            if (allowTurns >= 2 && Math.random() < 0.52) {
+            // 可选转折 2：更高概率构成复杂 Z型台阶、U型回环或 S型蛇折
+            if (allowTurns >= 2 && Math.random() < 0.65) {
               const ortho2 = getOrthogonal(d2).sort(() => Math.random() - 0.5);
               for (const d3 of ortho2) {
                 const tr1 = currCell.r + DIRS[d3].dr;
                 const tc1 = currCell.c + DIRS[d3].dc;
-                const tr2 = tr1 + DIRS[d3].dr;
-                const tc2 = tc1 + DIRS[d3].dc;
                 const tk1 = `${tr1},${tc1}`;
-                const tk2 = `${tr2},${tc2}`;
-
-                if (tr1 >= 0 && tr1 < rows && tc1 >= 0 && tc1 < cols && isCellValid(tr1, tc1) && !occupied.has(tk1) && !bodySet.has(tk1)) {
+                if (isCellValid(tr1, tc1) && !occupied.has(tk1) && !bodySet.has(tk1)) {
                   body.push({ r: tr1, c: tc1 });
                   bodySet.add(tk1);
                   currCell = { r: tr1, c: tc1 };
-                  if (tr2 >= 0 && tr2 < rows && tc2 >= 0 && tc2 < cols && isCellValid(tr2, tc2) && !occupied.has(tk2) && !bodySet.has(tk2)) {
+                  const tr2 = currCell.r + DIRS[d3].dr;
+                  const tc2 = currCell.c + DIRS[d3].dc;
+                  const tk2 = `${tr2},${tc2}`;
+                  if (isCellValid(tr2, tc2) && !occupied.has(tk2) && !bodySet.has(tk2)) {
                     body.push({ r: tr2, c: tc2 });
                     bodySet.add(tk2);
                   }
@@ -149,56 +182,78 @@ export function generateLevel({ shapeKey = 'rect', difficulty = 'medium' } = {})
     arrowId++;
     const cells = [...body].reverse();
     const color = ARROW_COLORS[(arrowId - 1) % ARROW_COLORS.length];
+    const arrowObj = {
+      id: arrowId,
+      color,
+      head: { r: head.r, c: head.c, dir: chosenDir },
+      cells
+    };
 
     cells.forEach(pt => occupied.add(`${pt.r},${pt.c}`));
-    return {
-      id: arrowId,
-      color: color,
-      head: { r: head.r, c: head.c, dir: chosenDir },
-      cells: cells
-    };
+    createdArrows.push(arrowObj);
+
+    if (!isFullySolvable(createdArrows)) {
+      cells.forEach(pt => occupied.delete(`${pt.r},${pt.c}`));
+      createdArrows.pop();
+      arrowId--;
+      return null;
+    }
+
+    return arrowObj;
   };
 
-  // Pass 1: 【中心向外深层生长】（多折线大跨度）
-  const centerCandidates = [...allValidCells].sort((a, b) => a.dist - b.dist + (Math.random() - 0.5) * 4);
-  for (const pt of centerCandidates) {
+  // Pass 1: 【先锋钥匙布设】严格在四周边缘布设 2 ~ 3 支无阻挡发射钥匙（全盘唯一破局口）
+  const targetKeyCount = (difficulty === 'easy' ? 4 : (difficulty === 'medium' ? 3 : 2));
+  const perimeterCells = allValidCells
+    .filter(pt => pt.r === 0 || pt.r === rows - 1 || pt.c === 0 || pt.c === cols - 1)
+    .sort(() => Math.random() - 0.5);
+
+  let placedKeys = 0;
+  for (const pt of perimeterCells) {
     if (!occupied.has(`${pt.r},${pt.c}`)) {
-      const arrow = tryGrowStructuredArrow(pt, 2);
-      if (arrow) createdArrows.push(arrow);
+      const a = tryGrowStructuredArrow(pt, 1, false);
+      if (a) {
+        placedKeys++;
+        if (placedKeys >= targetKeyCount) break;
+      }
     }
   }
 
-  // Pass 2: 【缝隙插播填充】（单折L型与直线）
-  const remainingPass2 = allValidCells.filter(pt => !occupied.has(`${pt.r},${pt.c}`)).sort(() => Math.random() - 0.5);
-  for (const pt of remainingPass2) {
+  // Pass 2: 【全盘深层互锁填充】所有后续箭头强制面向已存在箭头拦截，构建 30+ 层链式依赖
+  const remainingCells = allValidCells
+    .filter(pt => !occupied.has(`${pt.r},${pt.c}`))
+    .sort(() => Math.random() - 0.5);
+
+  for (const pt of remainingCells) {
     if (!occupied.has(`${pt.r},${pt.c}`)) {
-      const arrow = tryGrowStructuredArrow(pt, 1);
-      if (arrow) createdArrows.push(arrow);
+      tryGrowStructuredArrow(pt, 2, true);
     }
   }
 
-  // Pass 3: 【微隙碎块紧密咬合】（短直线）
-  const remainingPass3 = allValidCells.filter(pt => !occupied.has(`${pt.r},${pt.c}`)).sort(() => Math.random() - 0.5);
-  for (const pt of remainingPass3) {
+  // Pass 3: 【多折角缝隙高密度咬合】
+  const remPass3 = allValidCells
+    .filter(pt => !occupied.has(`${pt.r},${pt.c}`))
+    .sort(() => Math.random() - 0.5);
+  for (const pt of remPass3) {
     if (!occupied.has(`${pt.r},${pt.c}`)) {
-      const arrow = tryGrowStructuredArrow(pt, 0);
-      if (arrow) createdArrows.push(arrow);
+      tryGrowStructuredArrow(pt, 1, true);
     }
   }
 
-  // Pass 4: 【最终缝隙补漏填充】（尽最大努力填满空白格）
-  const remainingPass4 = allValidCells.filter(pt => !occupied.has(`${pt.r},${pt.c}`)).sort(() => Math.random() - 0.5);
-  for (const pt of remainingPass4) {
+  // Pass 4: 【最终紧凑碎隙咬合】
+  const remPass4 = allValidCells
+    .filter(pt => !occupied.has(`${pt.r},${pt.c}`))
+    .sort(() => Math.random() - 0.5);
+  for (const pt of remPass4) {
     if (!occupied.has(`${pt.r},${pt.c}`)) {
-      const arrow = tryGrowStructuredArrow(pt, 0);
-      if (arrow) createdArrows.push(arrow);
+      tryGrowStructuredArrow(pt, 0, true);
     }
   }
 
-  // Pass 5: 【精致时间漏斗布设】（确保 100% 处于至少一支箭头的发射贯穿路径上）
+  // Pass 5: 【精致时间漏斗布设】（确保 100% 处于至少一支深层箭头的发射贯穿路径上）
   let targetHourglassCount = 2;
   if (difficulty === 'medium') targetHourglassCount = 3;
-  else if (difficulty === 'hard') targetHourglassCount = 4;
+  else if (difficulty === 'hard') targetHourglassCount = 3;
 
   // 1. 分析开局直接可出射的无阻挡箭头，将其直接飞越路径计入“开局直吃黑名单”
   const initiallyMovable = findMovableArrows(createdArrows, rows, cols);

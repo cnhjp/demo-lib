@@ -89,9 +89,9 @@ export const SHAPES = {
 };
 
 export const GAME_RULES = {
-  PENALTY_SECONDS: 5,
-  HOURGLASS_BONUS_SECONDS: 10,
-  BASE_TIME_LIMIT: 130
+  PENALTY_SECONDS: 8,          // 误点受阻扣时加重至 8 秒
+  HOURGLASS_BONUS_SECONDS: 6,  // 沙漏加时奖励调整至 6 秒
+  BASE_TIME_LIMIT: 100         // 基准倒计时适度紧缩至 100 秒
 };
 
 // ==========================================
@@ -117,23 +117,23 @@ export const OPPOSITE_3D = {
   back: 'forward'
 };
 
-// 3D 空间立体造型发生器
+// 3D 空间立体造型发生器 (规模适度扩容提升难度与体素深度)
 export const SHAPES_3D = {
   cube: {
     name: '🧊 经典立体魔方',
     getDimensions: (diff) => {
-      if (diff === 'easy') return { sizeX: 4, sizeY: 4, sizeZ: 4 };
-      if (diff === 'medium') return { sizeX: 5, sizeY: 5, sizeZ: 5 };
-      return { sizeX: 6, sizeY: 6, sizeZ: 6 };
+      if (diff === 'easy') return { sizeX: 5, sizeY: 5, sizeZ: 5 };
+      if (diff === 'medium') return { sizeX: 6, sizeY: 6, sizeZ: 6 };
+      return { sizeX: 7, sizeY: 7, sizeZ: 7 };
     },
     isInside: () => true
   },
   diamond3d: {
     name: '💎 3D水晶八面体',
     getDimensions: (diff) => {
-      if (diff === 'easy') return { sizeX: 5, sizeY: 5, sizeZ: 5 };
-      if (diff === 'medium') return { sizeX: 7, sizeY: 7, sizeZ: 7 };
-      return { sizeX: 7, sizeY: 7, sizeZ: 7 };
+      if (diff === 'easy') return { sizeX: 6, sizeY: 6, sizeZ: 6 };
+      if (diff === 'medium') return { sizeX: 8, sizeY: 8, sizeZ: 8 };
+      return { sizeX: 8, sizeY: 8, sizeZ: 8 };
     },
     isInside: (x, y, z, sx, sy, sz) => {
       const midX = (sx - 1) / 2;
@@ -146,9 +146,9 @@ export const SHAPES_3D = {
   heart3d: {
     name: '❤️ 3D立体爱心',
     getDimensions: (diff) => {
-      if (diff === 'easy') return { sizeX: 5, sizeY: 5, sizeZ: 5 };
-      if (diff === 'medium') return { sizeX: 7, sizeY: 7, sizeZ: 7 };
-      return { sizeX: 7, sizeY: 7, sizeZ: 7 };
+      if (diff === 'easy') return { sizeX: 6, sizeY: 6, sizeZ: 6 };
+      if (diff === 'medium') return { sizeX: 8, sizeY: 8, sizeZ: 8 };
+      return { sizeX: 8, sizeY: 8, sizeZ: 8 };
     },
     isInside: (x, y, z, sx, sy, sz) => {
       const midX = (sx - 1) / 2;

@@ -50,7 +50,7 @@ export class SoundSynth {
     return this.masterGain || this.ctx?.destination;
   }
 
-  // 爽脆破空“咻——”声 (空气摩擦带通扫频白噪声 + 高频正弦音芯)
+  // 爽脆破空“咻——”声 (多普勒向下俯冲滑音 + 柔和低通气流 + 启动微击)
   playWhoosh() {
     if (this.muted) return;
     this.init();
@@ -58,21 +58,23 @@ export class SoundSynth {
     const now = this.ctx.currentTime;
     const dur = 0.22;
 
-    // 1. 空气摩擦撕裂白噪声 (Bandpass Swept Noise 模拟真实破空气流)
+    // 自然声调随机微扰 (±4%)，连续射击时如同机关枪连发般生动自然
+    const pitchVar = 0.96 + Math.random() * 0.08;
+
+    // 1. 柔和气流撕裂层 (低通扫频，从 1550Hz 疾速俯冲至 220Hz，消除刺耳高频杂音)
     if (this.noiseBuffer) {
       const noise = this.ctx.createBufferSource();
       noise.buffer = this.noiseBuffer;
 
       const filter = this.ctx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.Q.setValueAtTime(3.6, now);
-      filter.frequency.setValueAtTime(850, now);
-      filter.frequency.exponentialRampToValueAtTime(3800, now + dur * 0.38);
-      filter.frequency.exponentialRampToValueAtTime(1100, now + dur);
+      filter.type = 'lowpass';
+      filter.Q.setValueAtTime(2.4, now);
+      filter.frequency.setValueAtTime(1550 * pitchVar, now);
+      filter.frequency.exponentialRampToValueAtTime(220, now + dur);
 
       const noiseGain = this.ctx.createGain();
       noiseGain.gain.setValueAtTime(0.001, now);
-      noiseGain.gain.linearRampToValueAtTime(0.72, now + 0.025);
+      noiseGain.gain.linearRampToValueAtTime(0.58, now + 0.02);
       noiseGain.gain.exponentialRampToValueAtTime(0.001, now + dur);
 
       noise.connect(filter);
@@ -83,17 +85,16 @@ export class SoundSynth {
       noise.stop(now + dur);
     }
 
-    // 2. 破空尖啸音芯 (正弦波动态扫频)
+    // 2. 真实多普勒“向下俯冲”破空音芯 (从 960Hz 疾速俯冲滑落至 180Hz，呈现经典“咻——”质感)
     const osc = this.ctx.createOscillator();
     const oscGain = this.ctx.createGain();
 
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(420, now);
-    osc.frequency.exponentialRampToValueAtTime(1800, now + dur * 0.36);
-    osc.frequency.exponentialRampToValueAtTime(550, now + dur);
+    osc.frequency.setValueAtTime(960 * pitchVar, now);
+    osc.frequency.exponentialRampToValueAtTime(180 * pitchVar, now + dur);
 
     oscGain.gain.setValueAtTime(0.001, now);
-    oscGain.gain.linearRampToValueAtTime(0.45, now + 0.025);
+    oscGain.gain.linearRampToValueAtTime(0.48, now + 0.02);
     oscGain.gain.exponentialRampToValueAtTime(0.001, now + dur);
 
     osc.connect(oscGain);
@@ -101,6 +102,23 @@ export class SoundSynth {
 
     osc.start(now);
     osc.stop(now + dur);
+
+    // 3. 初始破风推力微击 (Thwip / 140Hz -> 45Hz 弹性触控力度感)
+    const kick = this.ctx.createOscillator();
+    const kickGain = this.ctx.createGain();
+
+    kick.type = 'sine';
+    kick.frequency.setValueAtTime(140, now);
+    kick.frequency.exponentialRampToValueAtTime(45, now + 0.045);
+
+    kickGain.gain.setValueAtTime(0.38, now);
+    kickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+
+    kick.connect(kickGain);
+    kickGain.connect(this.output);
+
+    kick.start(now);
+    kick.stop(now + 0.045);
   }
 
   // 受阻钝击木鱼声
