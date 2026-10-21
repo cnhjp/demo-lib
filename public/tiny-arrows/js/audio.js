@@ -1,6 +1,8 @@
 // ==========================================
-// Web Audio 纯原生音效合成器模块
+// Web Audio 纯原生音效合成器模块 (纯物理声学建模)
 // ==========================================
+
+import { AUDIO_PRESETS } from './constants.js';
 
 export class SoundSynth {
   constructor() {
@@ -20,29 +22,38 @@ export class SoundSynth {
       this.ctx.resume();
     }
     if (this.ctx && !this.masterGain) {
-      // 整体主输出总线：放大音量并串接动态压限器，确保声音大且绝不爆音
+      // 整体主输出总线：纯净增益与动态压限，手机外放纯净无杂音
       this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.setValueAtTime(1.65, this.ctx.currentTime);
+      this.masterGain.gain.setValueAtTime(1.0, this.ctx.currentTime);
 
       this.compressor = this.ctx.createDynamicsCompressor();
-      this.compressor.threshold.setValueAtTime(-12, this.ctx.currentTime);
-      this.compressor.knee.setValueAtTime(15, this.ctx.currentTime);
-      this.compressor.ratio.setValueAtTime(8, this.ctx.currentTime);
-      this.compressor.attack.setValueAtTime(0.003, this.ctx.currentTime);
-      this.compressor.release.setValueAtTime(0.15, this.ctx.currentTime);
+      this.compressor.threshold.setValueAtTime(-8, this.ctx.currentTime);
+      this.compressor.knee.setValueAtTime(12, this.ctx.currentTime);
+      this.compressor.ratio.setValueAtTime(6, this.ctx.currentTime);
+      this.compressor.attack.setValueAtTime(0.002, this.ctx.currentTime);
+      this.compressor.release.setValueAtTime(0.12, this.ctx.currentTime);
 
       this.masterGain.connect(this.compressor);
       this.compressor.connect(this.ctx.destination);
     }
-    if (this.ctx && !this.noiseBuffer) {
-      // 预先合成 0.6 秒白噪声缓存，供逼真空气摩擦/破空声快速调用
-      const bufferSize = Math.floor(this.ctx.sampleRate * 0.6);
+    if (this.ctx && !this.pinkNoiseBuffer) {
+      // 预先合成 0.5 秒柔和粉红噪声 (用于真实气流位移破风声，零高频刺耳毛刺)
+      const bufferSize = Math.floor(this.ctx.sampleRate * 0.5);
       const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
       const data = buffer.getChannelData(0);
+      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
       for (let i = 0; i < bufferSize; i++) {
-        data[i] = Math.random() * 2 - 1;
+        const white = Math.random() * 2 - 1;
+        b0 = 0.99886 * b0 + white * 0.0555179;
+        b1 = 0.99332 * b1 + white * 0.0750759;
+        b2 = 0.96900 * b2 + white * 0.1538520;
+        b3 = 0.86650 * b3 + white * 0.3104856;
+        b4 = 0.55000 * b4 + white * 0.5329522;
+        b5 = -0.7616 * b5 - white * 0.0168980;
+        data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.12;
+        b6 = white * 0.115926;
       }
-      this.noiseBuffer = buffer;
+      this.pinkNoiseBuffer = buffer;
     }
   }
 
@@ -50,75 +61,74 @@ export class SoundSynth {
     return this.masterGain || this.ctx?.destination;
   }
 
-  // 爽脆破空“咻——”声 (多普勒向下俯冲滑音 + 柔和低通气流 + 启动微击)
+  // 真实物理气动破风“咻——”声 (柔和气流位移 + 温润木质瞬态微击，极度解压且毫无电音感)
   playWhoosh() {
     if (this.muted) return;
     this.init();
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
-    const dur = 0.22;
+    const cfgSwish = AUDIO_PRESETS.SWISH;
+    const cfgSnap = AUDIO_PRESETS.WOOD_SNAP;
+    const cfgAir = AUDIO_PRESETS.AIR_BODY;
+    const pitchVar = 1.0 + (Math.random() - 0.5) * cfgSwish.pitchVariation;
 
-    // 自然声调随机微扰 (±4%)，连续射击时如同机关枪连发般生动自然
-    const pitchVar = 0.96 + Math.random() * 0.08;
-
-    // 1. 柔和气流撕裂层 (低通扫频，从 1550Hz 疾速俯冲至 220Hz，消除刺耳高频杂音)
-    if (this.noiseBuffer) {
+    // 1. 真实羽箭气流破风层 (粉红声学湍流 + 双二阶动态平滑扫频，优雅俯冲，软阻尼 Q=1.2)
+    if (this.pinkNoiseBuffer) {
       const noise = this.ctx.createBufferSource();
-      noise.buffer = this.noiseBuffer;
+      noise.buffer = this.pinkNoiseBuffer;
 
       const filter = this.ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.Q.setValueAtTime(2.4, now);
-      filter.frequency.setValueAtTime(1550 * pitchVar, now);
-      filter.frequency.exponentialRampToValueAtTime(220, now + dur);
+      filter.type = 'bandpass';
+      filter.Q.setValueAtTime(cfgSwish.bandpassQ, now);
+      filter.frequency.setValueAtTime(cfgSwish.startFreq * pitchVar, now);
+      filter.frequency.exponentialRampToValueAtTime(cfgSwish.endFreq * pitchVar, now + cfgSwish.duration);
 
       const noiseGain = this.ctx.createGain();
-      noiseGain.gain.setValueAtTime(0.001, now);
-      noiseGain.gain.linearRampToValueAtTime(0.58, now + 0.02);
-      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+      noiseGain.gain.setValueAtTime(0.0001, now);
+      noiseGain.gain.linearRampToValueAtTime(cfgSwish.gainPeak, now + 0.018);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + cfgSwish.duration);
 
       noise.connect(filter);
       filter.connect(noiseGain);
       noiseGain.connect(this.output);
 
       noise.start(now);
-      noise.stop(now + dur);
+      noise.stop(now + cfgSwish.duration);
     }
 
-    // 2. 真实多普勒“向下俯冲”破空音芯 (从 960Hz 疾速俯冲滑落至 180Hz，呈现经典“咻——”质感)
-    const osc = this.ctx.createOscillator();
-    const oscGain = this.ctx.createGain();
+    // 2. 温润木质解压微弹 (Marimba/Wood Snap: 420Hz -> 180Hz 20ms 饱满圆润瞬态，赋能手指触感)
+    const pop = this.ctx.createOscillator();
+    const popGain = this.ctx.createGain();
 
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(960 * pitchVar, now);
-    osc.frequency.exponentialRampToValueAtTime(180 * pitchVar, now + dur);
+    pop.type = 'sine';
+    pop.frequency.setValueAtTime(cfgSnap.startFreq * pitchVar, now);
+    pop.frequency.exponentialRampToValueAtTime(cfgSnap.endFreq * pitchVar, now + cfgSnap.duration);
 
-    oscGain.gain.setValueAtTime(0.001, now);
-    oscGain.gain.linearRampToValueAtTime(0.48, now + 0.02);
-    oscGain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    popGain.gain.setValueAtTime(cfgSnap.gainPeak, now);
+    popGain.gain.exponentialRampToValueAtTime(0.001, now + cfgSnap.duration);
 
-    osc.connect(oscGain);
-    oscGain.connect(this.output);
+    pop.connect(popGain);
+    popGain.connect(this.output);
 
-    osc.start(now);
-    osc.stop(now + dur);
+    pop.start(now);
+    pop.stop(now + cfgSnap.duration);
 
-    // 3. 初始破风推力微击 (Thwip / 140Hz -> 45Hz 弹性触控力度感)
-    const kick = this.ctx.createOscillator();
-    const kickGain = this.ctx.createGain();
+    // 3. 伴随低频空气气垫 (Subtle Air Body: 增加箭体飞掠的真实物理量感)
+    const airBody = this.ctx.createOscillator();
+    const airGain = this.ctx.createGain();
 
-    kick.type = 'sine';
-    kick.frequency.setValueAtTime(140, now);
-    kick.frequency.exponentialRampToValueAtTime(45, now + 0.045);
+    airBody.type = 'sine';
+    airBody.frequency.setValueAtTime(cfgAir.startFreq * pitchVar, now);
+    airBody.frequency.exponentialRampToValueAtTime(cfgAir.endFreq, now + cfgAir.duration);
 
-    kickGain.gain.setValueAtTime(0.38, now);
-    kickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+    airGain.gain.setValueAtTime(cfgAir.gainPeak, now);
+    airGain.gain.exponentialRampToValueAtTime(0.001, now + cfgAir.duration);
 
-    kick.connect(kickGain);
-    kickGain.connect(this.output);
+    airBody.connect(airGain);
+    airGain.connect(this.output);
 
-    kick.start(now);
-    kick.stop(now + 0.045);
+    airBody.start(now);
+    airBody.stop(now + cfgAir.duration);
   }
 
   // 受阻钝击木鱼声

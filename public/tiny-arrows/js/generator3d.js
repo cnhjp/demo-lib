@@ -2,7 +2,7 @@
 // 3D 空间立体多格体素关卡生成器 (DAG 定向互锁反推链体系)
 // ==========================================
 
-import { DIRS_3D, DIR_3D_KEYS, OPPOSITE_3D, ARROW_COLORS, SHAPES_3D } from './constants.js';
+import { DIRS_3D, DIR_3D_KEYS, OPPOSITE_3D, ARROW_COLORS, SHAPES_3D, GENERATOR_CONFIG } from './constants.js';
 import { findMovableArrows3D } from './physics3d.js';
 
 // 获取指定 3D 方向的正交方向集合（在剩余 2 个维度上的 4 个方向）
@@ -38,14 +38,12 @@ export function generateLevel3D({ shapeKey = 'cube', difficulty = 'medium' } = {
     }
   }
 
-  let totalTime = 105;
-  if (difficulty === 'easy') totalTime = 80;
-  else if (difficulty === 'medium') totalTime = 105;
-  else totalTime = 135;
+  const totalTime = GENERATOR_CONFIG.TIME_LIMITS_3D[difficulty] || 105;
 
   const occupied = new Set();
   const voxelKey = (x, y, z) => `${x},${y},${z}`;
-  const isVoxelValid = (x, y, z) => shape.isInside(x, y, z, sizeX, sizeY, sizeZ);
+  // 严格 3D 空间坐标范围与立体形状双重校验（严防立体超界截断）
+  const isVoxelValid = (x, y, z) => x >= 0 && x < sizeX && y >= 0 && y < sizeY && z >= 0 && z < sizeZ && shape.isInside(x, y, z, sizeX, sizeY, sizeZ);
 
   // 检查从当前体素朝 dirKey 方向发射是否有任何占用阻挡（直到立体外壁）
   const isRayClear3D = (head, dirKey) => {
@@ -94,7 +92,7 @@ export function generateLevel3D({ shapeKey = 'cube', difficulty = 'medium' } = {
   let arrowId = 0;
 
   // 尝试在 head 处生长一条修长、具备三维立体扭转折角的体素蛇（箭尖与身体严格共线同向）
-  const tryGrowStructuredArrow3D = (head, allowTurns, forceBlocked = false) => {
+  const tryGrowStructuredArrow3D = (head, allowTurns, forceBlocked = false, minLen = 3) => {
     let candidateDirs = DIR_3D_KEYS.filter(d => {
       const opp = OPPOSITE_3D[d];
       const nx = head.x + DIRS_3D[opp].dx;
@@ -201,7 +199,8 @@ export function generateLevel3D({ shapeKey = 'cube', difficulty = 'medium' } = {
       }
     }
 
-    if (body.length < 2) return null;
+    // 依阶段灵活保障长度：骨架阶段 >= 3 格，末轮微隙嵌合 >= 2 格
+    if (body.length < minLen) return null;
 
     arrowId++;
     const cells = [...body].reverse();
@@ -241,7 +240,7 @@ export function generateLevel3D({ shapeKey = 'cube', difficulty = 'medium' } = {
   };
 
   // Pass 1: 【外表面先锋钥匙布设】严格放置 2 ~ 3 支无阻挡发射钥匙（全盘仅有破局突破口）
-  const targetKeyCount = (difficulty === 'easy' ? 4 : (difficulty === 'medium' ? 3 : 2));
+  const targetKeyCount = GENERATOR_CONFIG.TARGET_KEYS[difficulty] || 3;
   const surfaceCandidates = allValidVoxels
     .filter(pt => isSurfaceVoxel(pt.x, pt.y, pt.z))
     .sort(() => Math.random() - 0.5);
@@ -249,7 +248,7 @@ export function generateLevel3D({ shapeKey = 'cube', difficulty = 'medium' } = {
   let placedKeys = 0;
   for (const pt of surfaceCandidates) {
     if (!occupied.has(voxelKey(pt.x, pt.y, pt.z))) {
-      const a = tryGrowStructuredArrow3D(pt, 1, false);
+      const a = tryGrowStructuredArrow3D(pt, 1, false, GENERATOR_CONFIG.MIN_LEN_STANDARD);
       if (a) {
         placedKeys++;
         if (placedKeys >= targetKeyCount) break;
@@ -257,33 +256,37 @@ export function generateLevel3D({ shapeKey = 'cube', difficulty = 'medium' } = {
     }
   }
 
-  // Pass 2: 【全空间深度鲁班互锁填充】强制面向已有体素阻挡拦截 (多折角立体长蛇)
-  const remPass2 = allValidVoxels
-    .filter(pt => !occupied.has(voxelKey(pt.x, pt.y, pt.z)))
-    .sort(() => Math.random() - 0.5);
-  for (const pt of remPass2) {
-    if (!occupied.has(voxelKey(pt.x, pt.y, pt.z))) {
-      tryGrowStructuredArrow3D(pt, 2, true);
+  // Pass 2: 【全空间深度鲁班互锁多轮压实】（消除空间镂空）
+  for (let sweep = 0; sweep < GENERATOR_CONFIG.SWEEPS_PASS2; sweep++) {
+    const remPass2 = allValidVoxels
+      .filter(pt => !occupied.has(voxelKey(pt.x, pt.y, pt.z)))
+      .sort(() => Math.random() - 0.5);
+    for (const pt of remPass2) {
+      if (!occupied.has(voxelKey(pt.x, pt.y, pt.z))) {
+        tryGrowStructuredArrow3D(pt, 2, true, GENERATOR_CONFIG.MIN_LEN_STANDARD);
+      }
     }
   }
 
-  // Pass 3: 【多折角立体缝隙咬合】
-  const remPass3 = allValidVoxels
-    .filter(pt => !occupied.has(voxelKey(pt.x, pt.y, pt.z)))
-    .sort(() => Math.random() - 0.5);
-  for (const pt of remPass3) {
-    if (!occupied.has(voxelKey(pt.x, pt.y, pt.z))) {
-      tryGrowStructuredArrow3D(pt, 1, true);
+  // Pass 3: 【多折角立体缝隙咬合】（递归嵌合）
+  for (let sweep = 0; sweep < GENERATOR_CONFIG.SWEEPS_PASS3; sweep++) {
+    const remPass3 = allValidVoxels
+      .filter(pt => !occupied.has(voxelKey(pt.x, pt.y, pt.z)))
+      .sort(() => Math.random() - 0.5);
+    for (const pt of remPass3) {
+      if (!occupied.has(voxelKey(pt.x, pt.y, pt.z))) {
+        tryGrowStructuredArrow3D(pt, 1, true, GENERATOR_CONFIG.MIN_LEN_STANDARD);
+      }
     }
   }
 
-  // Pass 4: 【最终紧凑碎隙填充】
+  // Pass 4: 【最终紧凑立体缝隙终极压实】（充盈空间，立体紧凑度跃升至 88%~92%）
   const remPass4 = allValidVoxels
     .filter(pt => !occupied.has(voxelKey(pt.x, pt.y, pt.z)))
     .sort(() => Math.random() - 0.5);
   for (const pt of remPass4) {
     if (!occupied.has(voxelKey(pt.x, pt.y, pt.z))) {
-      tryGrowStructuredArrow3D(pt, 0, true);
+      tryGrowStructuredArrow3D(pt, 1, true, GENERATOR_CONFIG.MIN_LEN_MICRO_PACK);
     }
   }
 

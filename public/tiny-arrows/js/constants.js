@@ -95,6 +95,74 @@ export const GAME_RULES = {
 };
 
 // ==========================================
+// 关卡生成引擎核心调参配置 (统一集中控制台)
+// ==========================================
+export const GENERATOR_CONFIG = {
+  // 开局突破钥匙数限制（全盘唯一破局突破口）
+  TARGET_KEYS: {
+    easy: 4,
+    medium: 3,
+    hard: 2
+  },
+  // 2D 关卡基准倒计时时限 (秒)
+  TIME_LIMITS_2D: {
+    easy: 70,
+    medium: 85,
+    hard: 105
+  },
+  // 3D 关卡基准倒计时时限 (秒)
+  TIME_LIMITS_3D: {
+    easy: 80,
+    medium: 105,
+    hard: 135
+  },
+  // 时间漏斗目标布设数量
+  HOURGLASS_TARGETS: {
+    easy: 2,
+    medium: 3,
+    hard: 3
+  },
+  // 多轮致密压实循环轮次 (高密度紧凑拼图)
+  SWEEPS_PASS2: 3,
+  SWEEPS_PASS3: 2,
+  // 箭头蛇身臂长延伸区间 (格数)
+  ARM_LENGTHS: {
+    seg1Max: 5, // 首臂 2~5 格
+    seg2Max: 4, // 二臂 2~4 格
+    seg3Max: 4  // 三臂 2~4 格
+  },
+  // 长度下限控制
+  MIN_LEN_STANDARD: 3,  // 骨架阶段严格 >= 3 格
+  MIN_LEN_MICRO_PACK: 2 // 终极微隙嵌合 >= 2 格
+};
+
+// ==========================================
+// 纯物理声学合成器配置预设
+// ==========================================
+export const AUDIO_PRESETS = {
+  SWISH: {
+    duration: 0.18,
+    pitchVariation: 0.06,
+    bandpassQ: 1.2,
+    startFreq: 1250,
+    endFreq: 260,
+    gainPeak: 0.42
+  },
+  WOOD_SNAP: {
+    duration: 0.025,
+    startFreq: 420,
+    endFreq: 180,
+    gainPeak: 0.35
+  },
+  AIR_BODY: {
+    duration: 0.12,
+    startFreq: 260,
+    endFreq: 90,
+    gainPeak: 0.18
+  }
+};
+
+// ==========================================
 // 3D 立体空间正交方向规范 (X:左右, Y:上下, Z:前后)
 // ==========================================
 export const DIRS_3D = {

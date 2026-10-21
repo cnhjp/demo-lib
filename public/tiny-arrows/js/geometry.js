@@ -45,6 +45,18 @@ export function buildArrowSvgGeometry(arrow, S) {
     });
   }
 
+  // 箭尾饱满延展：起笔点沿尾端反向延伸 0.22*S，使尾部圆角饱满充盈格缘，彻底消除断截空悬感
+  if (arrow.cells.length >= 2) {
+    const tail = arrow.cells[0];
+    const next = arrow.cells[1];
+    const tdr = tail.r - next.r;
+    const tdc = tail.c - next.c;
+    bodyPoints[0] = {
+      x: (tail.c * S + S / 2) + tdc * (S * 0.22),
+      y: (tail.r * S + S / 2) + tdr * (S * 0.22)
+    };
+  }
+
   // 从头部格子中心直插至底边中心（纯正交直线）
   bodyPoints.push({ x: baseX, y: baseY });
 
