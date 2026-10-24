@@ -11,6 +11,13 @@
   <body
     class="flex items-center justify-center min-h-screen font-sans overflow-hidden"
   >
+    <div class="fixed top-4 left-4 z-50">
+      <a href="/" class="back-link" title="返回展厅">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        <span>展厅</span>
+      </a>
+    </div>
+
     <div id="light-switch" title="拖动拉绳开关灯">
       <svg
         id="light-bulb"
@@ -31,8 +38,11 @@
     <div id="spotlight-overlay"></div>
 
     <div class="text-center p-8">
-      <h1 class="text-4xl sm:text-5xl font-bold mb-4">欢迎来到黑夜模式</h1>
-      <p class="text-xl text-gray-400 mb-8">你的鼠标是这里唯一的光源</p>
+      <h1 class="text-3xl sm:text-5xl font-bold mb-4">欢迎来到黑夜模式</h1>
+      <p class="text-lg sm:text-xl text-gray-400 mb-6 sm:mb-8">
+        <span class="hidden sm:inline">你的鼠标是这里唯一的光源</span>
+        <span class="sm:hidden">你的手指触碰是这里唯一的光源</span>
+      </p>
 
       <div
         class="w-full max-w-2xl mx-auto rounded-lg overflow-hidden shadow-2xl"
@@ -43,7 +53,10 @@
           class="w-full h-full object-cover"
         />
       </div>
-      <p class="mt-8 text-lg text-gray-500">试着移动鼠标，照亮不同的区域。</p>
+      <p class="mt-6 sm:mt-8 text-base sm:text-lg text-gray-500">
+        <span class="hidden sm:inline">试着移动鼠标，照亮不同的区域。</span>
+        <span class="sm:hidden">试着触摸滑动屏幕，照亮不同的区域。</span>
+      </p>
     </div>
 
     <script src="script.js" defer></script>

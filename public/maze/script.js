@@ -34,6 +34,8 @@ const bestEl = document.getElementById("best");
 const statusEl = document.getElementById("status");
 const toggleBtn = document.getElementById("toggleBtn");
 const demoBtn = document.getElementById("demoBtn");
+const autoWalkBtn = document.getElementById("autoWalkBtn");
+const soundBtn = document.getElementById("soundBtn");
 const newBtn = document.getElementById("newBtn");
 const nextLevelBtn = document.getElementById("nextLevelBtn");
 const pauseBtn = document.getElementById("pauseBtn");
@@ -56,6 +58,118 @@ const themeSelector = document.getElementById('theme');
 const keysCard = document.getElementById('keys-card');
 const trapsCard = document.getElementById('traps-card');
 const bestCard = document.getElementById('best-card');
+
+// ==========================================
+// Web Audio 原生声学音效系统 (零外部资源依赖)
+// ==========================================
+const SoundSystem = {
+  ctx: null,
+  enabled: localStorage.getItem('mazeSoundEnabled') !== 'false',
+  init() {
+    if (!this.ctx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) this.ctx = new AudioCtx();
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+  },
+  playStep() {
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    const baseFreq = 380 + (Math.random() * 40 - 20);
+    osc.frequency.setValueAtTime(baseFreq, now);
+    osc.frequency.exponentialRampToValueAtTime(180, now + 0.05);
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.055);
+  },
+  playKey() {
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    [523.25, 659.25, 783.99].forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.setValueAtTime(0.16, now + idx * 0.06);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.15);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now + idx * 0.06);
+      osc.stop(now + idx * 0.06 + 0.16);
+    });
+  },
+  playTrap() {
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(220, now);
+    osc.frequency.linearRampToValueAtTime(90, now + 0.25);
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.25);
+  },
+  playCaught() {
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(180, now);
+    osc.frequency.exponentialRampToValueAtTime(45, now + 0.4);
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.4);
+  },
+  playWin() {
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.09);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.setValueAtTime(0.2, now + idx * 0.09);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.09 + 0.28);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now + idx * 0.09);
+      osc.stop(now + idx * 0.09 + 0.3);
+    });
+  },
+  toggle() {
+    this.enabled = !this.enabled;
+    localStorage.setItem('mazeSoundEnabled', String(this.enabled));
+    return this.enabled;
+  }
+};
 
 // 画布用到的颜色
 const FOG_COLOR = "#0b1131";
@@ -107,6 +221,7 @@ let collectedKeys = 0;
 let traps = [];
 let guards = [];
 let demo = { playing: false, path: [], i: 0, acc: 0, stepMs: 60 };
+let autoWalk = { active: false, target: null, stepDelay: 95, lastStepTime: 0, path: [], lockedKey: null };
 
 const fogRadius = 3;
 
@@ -181,11 +296,12 @@ function generateMaze() {
   }
 }
 
-function computeSolutionFrom(sx, sy, gx, gy) {
+function computeSolutionFrom(sx, sy, gx, gy, blockedKeys = null) {
   const q = [];
   const seen = new Set();
   const prev = new Map();
   const startKey = key(sx, sy);
+  const goalKey = key(gx, gy);
   q.push({ x: sx, y: sy });
   seen.add(startKey);
   while (q.length) {
@@ -200,13 +316,14 @@ function computeSolutionFrom(sx, sy, gx, gy) {
       if (!inBounds(nx, ny)) continue;
       const k = key(nx, ny);
       if (seen.has(k)) continue;
+      if (blockedKeys && blockedKeys.has(k) && k !== goalKey) continue;
       seen.add(k);
       prev.set(k, key(x, y));
       q.push({ x: nx, y: ny });
     }
   }
   const path = [];
-  let cur = key(gx, gy);
+  let cur = goalKey;
   if (!prev.has(cur) && cur !== startKey) return [];
   path.push(parseKey(cur));
   while (cur !== startKey) {
@@ -214,6 +331,61 @@ function computeSolutionFrom(sx, sy, gx, gy) {
     path.push(parseKey(cur));
   }
   return path.reverse();
+}
+
+function getGuardDangerZone(radius = 2) {
+  const danger = new Set();
+  if (gameMode !== 'treasure' || !guards || guards.length === 0) return danger;
+
+  guards.forEach(g => {
+    const gx = Math.round(g.x);
+    const gy = Math.round(g.y);
+    if (!inBounds(gx, gy)) return;
+
+    danger.add(key(gx, gy));
+
+    if (g.path && g.path.length > 1) {
+      danger.add(key(g.path[1].x, g.path[1].y));
+    }
+
+    const q = [{ x: gx, y: gy, dist: 0 }];
+    const visited = new Set([key(gx, gy)]);
+    while (q.length) {
+      const cur = q.shift();
+      if (cur.dist >= radius) continue;
+      const c = maze[idx(cur.x, cur.y)];
+      if (!c) continue;
+      for (let dir = 0; dir < 4; dir++) {
+        if (c.walls[dir]) continue;
+        const nx = cur.x + dirVecs[dir].dx;
+        const ny = cur.y + dirVecs[dir].dy;
+        if (!inBounds(nx, ny)) continue;
+        const k = key(nx, ny);
+        if (!visited.has(k)) {
+          visited.add(k);
+          danger.add(k);
+          q.push({ x: nx, y: ny, dist: cur.dist + 1 });
+        }
+      }
+    }
+  });
+
+  return danger;
+}
+
+function getMinCorridorDistToGuards(x, y, maxCheck = 5) {
+  if (gameMode !== 'treasure' || !guards || guards.length === 0) return Infinity;
+  let minDist = Infinity;
+  for (const g of guards) {
+    const gx = Math.round(g.x);
+    const gy = Math.round(g.y);
+    if (Math.abs(x - gx) + Math.abs(y - gy) > maxCheck) continue;
+    const p = computeSolutionFrom(gx, gy, x, y);
+    if (p.length > 0 && p.length - 1 < minDist) {
+      minDist = p.length - 1;
+    }
+  }
+  return minDist;
 }
 
 function computeSolution() {
@@ -334,6 +506,17 @@ function drawMaze() {
     ctx.fill();
   }
 
+  // 自动寻路目标点指示
+  if (autoWalk.active && autoWalk.target) {
+    const tx = autoWalk.target.x * cellSize + cellSize / 2;
+    const ty = autoWalk.target.y * cellSize + cellSize / 2;
+    ctx.strokeStyle = "#f43f5e";
+    ctx.lineWidth = Math.max(1.5, 2 * (600 / gridSize / 21));
+    ctx.beginPath();
+    ctx.arc(tx, ty, Math.max(3, cellSize * 0.35), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
   // 玩家
   const t = Math.min(1, playerAnim.t);
   const ax = lerp(playerAnim.fromX, playerAnim.toX, t);
@@ -390,6 +573,7 @@ function tryMove(dx, dy) {
   playerAnim = { fromX: player.x, fromY: player.y, toX: nx, toY: ny, t: 0 };
   player.x = nx; player.y = ny;
   moves += 1; movesEl.textContent = String(moves);
+  SoundSystem.playStep();
 
   if (gameMode === 'treasure') {
     const keyIndex = keys.findIndex(k => !k.collected && k.x === player.x && k.y === player.y);
@@ -398,6 +582,7 @@ function tryMove(dx, dy) {
       collectedKeys++;
       keysEl.textContent = `${collectedKeys} / ${currentTreasureConfig.keysRequired}`;
       statusEl.textContent = "找到一把钥匙！";
+      SoundSystem.playKey();
     }
     const trapIndex = traps.findIndex(t => !t.revealed && t.x === player.x && t.y === player.y);
     if (trapIndex > -1) {
@@ -405,6 +590,7 @@ function tryMove(dx, dy) {
       isTrapped = true;
       trapEndTime = performance.now() + 2000;
       statusEl.textContent = "踩到陷阱了！定身2秒！";
+      SoundSystem.playTrap();
     }
     if (showSolution) updateTreasureSolution();
   }
@@ -443,25 +629,59 @@ function triggerShake() {
     setTimeout(() => gameContainer.classList.remove('shake'), 500);
 }
 
-function showEndGameMessage(message, type) {
-    gameOverOverlay.textContent = message;
-    gameOverOverlay.className = 'game-over-message'; // Reset classes
-    gameOverOverlay.classList.add(type); // 'success' or 'failure'
-    gameOverOverlay.classList.add('visible');
+function showWinModal(isWin, message) {
+  const winModal = document.getElementById("winModal");
+  if (!winModal) return;
 
-    setTimeout(() => {
-        gameOverOverlay.classList.remove('visible');
-    }, 2500); // Start fading out after 2.5s, total 3s visibility
+  const winTitle = document.getElementById("winModalTitle");
+  const winSubtitle = document.getElementById("winModalSubtitle");
+  const winMode = document.getElementById("winMode");
+  const winTime = document.getElementById("winTime");
+  const winMoves = document.getElementById("winMoves");
+  const winShortest = document.getElementById("winShortest");
+  const winShortestCard = document.getElementById("winShortestCard");
+
+  const selectedOption = difficultySel.options[difficultySel.selectedIndex];
+  if (winMode) winMode.textContent = selectedOption ? selectedOption.text : "";
+  if (winTime) winTime.textContent = formatMs(finishTime - startTime);
+  if (winMoves) winMoves.textContent = String(moves);
+
+  if (gameMode === 'classic') {
+    if (winShortestCard) winShortestCard.style.display = '';
+    if (winShortest) winShortest.textContent = shortestEl.textContent;
+  } else {
+    if (winShortestCard) winShortestCard.style.display = 'none';
+  }
+
+  const nextBtn = document.getElementById("winNextBtn");
+  if (isWin) {
+    if (winTitle) {
+      winTitle.textContent = "🎉 挑战成功！";
+      winTitle.style.color = "var(--accent)";
+    }
+    if (winSubtitle) winSubtitle.textContent = "恭喜你顺利逃离迷宫，太棒了！";
+    if (nextBtn) nextBtn.style.display = '';
+  } else {
+    if (winTitle) {
+      winTitle.textContent = "💀 挑战失败";
+      winTitle.style.color = "var(--danger)";
+    }
+    if (winSubtitle) winSubtitle.textContent = message || "你被守卫抓住了！";
+    if (nextBtn) nextBtn.style.display = 'none';
+  }
+
+  winModal.style.display = "flex";
 }
 
 function endGame(isWin, message) {
+    stopAutoWalk();
     finished = true;
     finishTime = performance.now();
     timeEl.textContent = formatMs(finishTime - startTime);
     statusEl.textContent = message;
     saveGameResult(isWin ? "胜利" : "失败");
     if (isWin) {
-        showEndGameMessage("挑战成功!", 'success');
+        SoundSystem.playWin();
         triggerConfetti();
         if (gameMode === 'classic') showSolution = true;
         toggleBtn.textContent = "隐藏答案";
@@ -469,13 +689,15 @@ function endGame(isWin, message) {
         nextLevelBtn.style.display = '';
         newBtn.style.display = 'none';
     } else {
-        showEndGameMessage("再接再厉!", 'failure');
+        SoundSystem.playCaught();
         triggerShake();
     }
+    showWinModal(isWin, message);
 }
 
 function undoMove() {
   if (paused || finished || gameMode === 'treasure') return;
+  stopAutoWalk();
   if (playerAnim.t < 1) return;
   const prev = undoStack.pop();
   if (!prev) return;
@@ -489,10 +711,11 @@ function onKey(e) {
   if (e.target.id === 'seed') return;
   let handled = false;
   switch (e.key) {
-    case "ArrowUp": case "w": case "W": tryMove(0, -1); handled = true; break;
-    case "ArrowRight": case "d": case "D": tryMove(1, 0); handled = true; break;
-    case "ArrowDown": case "s": case "S": tryMove(0, 1); handled = true; break;
-    case "ArrowLeft": case "a": case "A": tryMove(-1, 0); handled = true; break;
+    case "ArrowUp": case "w": case "W": stopAutoWalk(); tryMove(0, -1); handled = true; break;
+    case "ArrowRight": case "d": case "D": stopAutoWalk(); tryMove(1, 0); handled = true; break;
+    case "ArrowDown": case "s": case "S": stopAutoWalk(); tryMove(0, 1); handled = true; break;
+    case "ArrowLeft": case "a": case "A": stopAutoWalk(); tryMove(-1, 0); handled = true; break;
+    case "z": case "Z": toggleAutoWalk(); handled = true; break;
     case "h": case "H": toggleAnswer(); handled = true; break;
     case "g": case "G": toggleDemo(); handled = true; break;
     case "r": case "R": newMaze(); handled = true; break;
@@ -503,6 +726,7 @@ function onKey(e) {
 }
 
 pads.forEach(p => p.addEventListener("click", () => {
+  stopAutoWalk();
   const m = p.getAttribute("data-m");
   if (m === "u") tryMove(0, -1);
   else if (m === "r") tryMove(1, 0);
@@ -525,6 +749,9 @@ function tick() {
       }
       if (gameMode === 'treasure' && !finished) {
           updateGuards(now);
+      }
+      if (autoWalk.active && !paused && !isTrapped && !finished) {
+        updateAutoWalk(now);
       }
       if (demo.playing && !paused) {
         demo.acc += 16.67; // Assuming ~60fps
@@ -634,6 +861,210 @@ function toggleAnswer() {
         solution = []; // Hide path if toggled off
     }
 }
+
+function startAutoWalk(target = null) {
+  if (finished || paused || isTrapped) return;
+  SoundSystem.init();
+  if (target) {
+    const path = computeSolutionFrom(player.x, player.y, target.x, target.y);
+    if (!path || path.length < 2) {
+      statusEl.textContent = "无法到达该位置";
+      return;
+    }
+  }
+  if (demo.playing) demo.playing = false;
+  autoWalk.active = true;
+  autoWalk.target = target;
+  autoWalk.lastStepTime = performance.now();
+  autoWalk.path = [];
+  autoWalk.lockedKey = null;
+
+  if (autoWalkBtn) {
+    autoWalkBtn.textContent = "停止自动";
+    autoWalkBtn.style.background = "#e11d48";
+    autoWalkBtn.style.color = "#ffffff";
+  }
+  statusEl.textContent = target ? "正在前往目标点..." : "自动寻路中...";
+}
+
+function stopAutoWalk() {
+  if (!autoWalk.active) return;
+  autoWalk.active = false;
+  autoWalk.target = null;
+  autoWalk.path = [];
+  autoWalk.lockedKey = null;
+  if (autoWalkBtn) {
+    autoWalkBtn.textContent = "自动走路";
+    autoWalkBtn.style.background = "";
+    autoWalkBtn.style.color = "";
+  }
+  if (statusEl.textContent.includes("自动") || statusEl.textContent.includes("目标点") || statusEl.textContent.includes("守卫") || statusEl.textContent.includes("巡航") || statusEl.textContent.includes("等待")) {
+    statusEl.textContent = "";
+  }
+}
+
+function toggleAutoWalk() {
+  if (autoWalk.active) {
+    stopAutoWalk();
+  } else {
+    startAutoWalk();
+  }
+}
+
+function updateAutoWalk(now) {
+  if (playerAnim.t < 1) return;
+  if (now - autoWalk.lastStepTime < autoWalk.stepDelay) return;
+
+  // 1. 点选目标寻路
+  if (autoWalk.target) {
+    if (player.x === autoWalk.target.x && player.y === autoWalk.target.y) {
+      stopAutoWalk();
+      statusEl.textContent = "已到达目标点";
+      return;
+    }
+    const dangerZone = (gameMode === 'treasure') ? getGuardDangerZone(2) : null;
+    let path = computeSolutionFrom(player.x, player.y, autoWalk.target.x, autoWalk.target.y, dangerZone);
+    if (!path || path.length < 2) {
+      path = computeSolutionFrom(player.x, player.y, autoWalk.target.x, autoWalk.target.y);
+      if (!path || path.length < 2) {
+        stopAutoWalk();
+        statusEl.textContent = "无法到达目标点";
+        return;
+      }
+    }
+    const nextCell = path[1];
+    autoWalk.lastStepTime = now;
+    tryMove(nextCell.x - player.x, nextCell.y - player.y);
+    return;
+  }
+
+  // 2. 经典模式：锁存并沿单向最短解队列行进，绝不折返重算
+  if (gameMode === 'classic') {
+    if (player.x === goal.x && player.y === goal.y) {
+      stopAutoWalk();
+      return;
+    }
+    if (!autoWalk.path || autoWalk.path.length < 2 || autoWalk.path[0].x !== player.x || autoWalk.path[0].y !== player.y) {
+      autoWalk.path = computeSolutionFrom(player.x, player.y, goal.x, goal.y);
+    }
+    if (!autoWalk.path || autoWalk.path.length < 2) {
+      stopAutoWalk();
+      statusEl.textContent = "无可用路径";
+      return;
+    }
+    const nextCell = autoWalk.path[1];
+    autoWalk.path.shift();
+    autoWalk.lastStepTime = now;
+    tryMove(nextCell.x - player.x, nextCell.y - player.y);
+    return;
+  }
+
+  // 3. 夺宝模式：同走廊怪物真实威胁距离判定 + 目标钥匙锁定
+  const allRequiredKeys = collectedKeys >= currentTreasureConfig.keysRequired;
+  const corridorDist = getMinCorridorDistToGuards(player.x, player.y, 4);
+
+  // 仅当怪物在同走廊且仅剩 2 步以内时才触发战术避让（彻底解决隔墙虚假避障）
+  if (corridorDist <= 2) {
+    let bestEvade = null;
+    let maxDist = corridorDist;
+    const curCell = maze[idx(player.x, player.y)];
+    if (curCell) {
+      for (let dir = 0; dir < 4; dir++) {
+        if (!curCell.walls[dir]) {
+          const nx = player.x + dirVecs[dir].dx;
+          const ny = player.y + dirVecs[dir].dy;
+          if (inBounds(nx, ny)) {
+            const d = getMinCorridorDistToGuards(nx, ny, 6);
+            if (d > maxDist) {
+              maxDist = d;
+              bestEvade = { dx: dirVecs[dir].dx, dy: dirVecs[dir].dy };
+            }
+          }
+        }
+      }
+    }
+
+    if (bestEvade) {
+      statusEl.textContent = "守卫逼近，紧急避让中...";
+      autoWalk.lastStepTime = now;
+      autoWalk.lockedKey = null;
+      tryMove(bestEvade.dx, bestEvade.dy);
+      return;
+    } else {
+      statusEl.textContent = "原地戒备，等待守卫走开...";
+      autoWalk.lastStepTime = now;
+      return;
+    }
+  }
+
+  // 钥匙收集完成，直奔出口
+  if (allRequiredKeys) {
+    if (player.x === goal.x && player.y === goal.y) {
+      stopAutoWalk();
+      return;
+    }
+    const dangerZone = getGuardDangerZone(2);
+    let path = computeSolutionFrom(player.x, player.y, goal.x, goal.y, dangerZone);
+    if (!path || path.length < 2) {
+      path = computeSolutionFrom(player.x, player.y, goal.x, goal.y);
+    }
+    if (path && path.length > 1) {
+      const nextCell = path[1];
+      autoWalk.lastStepTime = now;
+      statusEl.textContent = "钥匙集齐，前往出口逃离！";
+      tryMove(nextCell.x - player.x, nextCell.y - player.y);
+      return;
+    }
+  }
+
+  // 锁定当前目标钥匙，禁止在多把钥匙间徘徊折返
+  const uncollectedKeys = keys.filter(k => !k.collected);
+  if (uncollectedKeys.length === 0) return;
+
+  const dangerZone = getGuardDangerZone(2);
+  let targetKey = autoWalk.lockedKey;
+
+  if (!targetKey || targetKey.collected || dangerZone.has(key(targetKey.x, targetKey.y))) {
+    let bestKey = null;
+    let minPathLen = Infinity;
+    for (const k of uncollectedKeys) {
+      const p = computeSolutionFrom(player.x, player.y, k.x, k.y, dangerZone);
+      if (p.length > 0 && p.length < minPathLen) {
+        minPathLen = p.length;
+        bestKey = k;
+      }
+    }
+    if (!bestKey) {
+      for (const k of uncollectedKeys) {
+        const p = computeSolutionFrom(player.x, player.y, k.x, k.y);
+        if (p.length > 0 && p.length < minPathLen) {
+          minPathLen = p.length;
+          bestKey = k;
+        }
+      }
+    }
+    targetKey = bestKey;
+    autoWalk.lockedKey = targetKey;
+  }
+
+  if (targetKey) {
+    let path = computeSolutionFrom(player.x, player.y, targetKey.x, targetKey.y, dangerZone);
+    if (!path || path.length < 2) {
+      path = computeSolutionFrom(player.x, player.y, targetKey.x, targetKey.y);
+    }
+    if (path && path.length > 1) {
+      const nextCell = path[1];
+      autoWalk.lastStepTime = now;
+      statusEl.textContent = "精准寻路中（锁定钥匙目标）...";
+      tryMove(nextCell.x - player.x, nextCell.y - player.y);
+      return;
+    }
+  }
+
+  statusEl.textContent = "等待守卫走开...";
+  autoWalk.lastStepTime = now;
+}
+
 function toggleDemo() {
     if (demo.playing) {
         demo.playing = false;
@@ -642,9 +1073,15 @@ function toggleDemo() {
         startDemo();
     }
 }
-function togglePause() { paused = !paused; pauseBtn.textContent = paused ? "继续" : "暂停"; statusEl.textContent = paused ? "已暂停" : ""; }
+function togglePause() { 
+  paused = !paused; 
+  pauseBtn.textContent = paused ? "继续" : "暂停"; 
+  statusEl.textContent = paused ? "已暂停" : ""; 
+  if (paused) stopAutoWalk();
+}
 
 function resetState() {
+  stopAutoWalk();
   player = { x: 0, y: 0 };
   playerAnim = { fromX: 0, fromY: 0, toX: 0, toY: 0, t: 1 };
   moves = 0; movesEl.textContent = "0";
@@ -658,7 +1095,9 @@ function resetState() {
   demo.playing = false;
   nextLevelBtn.style.display = 'none';
   newBtn.style.display = '';
-  gameOverOverlay.classList.remove('visible');
+  const winModal = document.getElementById("winModal");
+  if (winModal) winModal.style.display = "none";
+  if (gameOverOverlay) gameOverOverlay.classList.remove('visible');
   
   if (gameMode === 'treasure') {
       collectedKeys = 0;
@@ -852,8 +1291,32 @@ function applyTheme(theme) {
 
 window.addEventListener("keydown", onKey);
 canvas.addEventListener("pointerdown", () => canvas.focus());
+canvas.addEventListener("click", (e) => {
+  if (finished || paused || isTrapped) return;
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const clickX = (e.clientX - rect.left) * scaleX;
+  const clickY = (e.clientY - rect.top) * scaleY;
+  const targetX = Math.floor(clickX / cellSize);
+  const targetY = Math.floor(clickY / cellSize);
+
+  if (inBounds(targetX, targetY)) {
+    if (targetX === player.x && targetY === player.y) return;
+    startAutoWalk({ x: targetX, y: targetY });
+  }
+});
 toggleBtn.addEventListener("click", toggleAnswer);
 demoBtn.addEventListener("click", toggleDemo);
+if (autoWalkBtn) autoWalkBtn.addEventListener("click", toggleAutoWalk);
+if (soundBtn) {
+  soundBtn.textContent = SoundSystem.enabled ? "🔊 音效: 开" : "🔈 音效: 关";
+  soundBtn.addEventListener("click", () => {
+    const isEnabled = SoundSystem.toggle();
+    soundBtn.textContent = isEnabled ? "🔊 音效: 开" : "🔈 音效: 关";
+    if (isEnabled) SoundSystem.playKey();
+  });
+}
 newBtn.addEventListener("click", newMaze);
 nextLevelBtn.addEventListener("click", goToNextLevel);
 pauseBtn.addEventListener("click", togglePause);
@@ -880,6 +1343,39 @@ historyModal.addEventListener('click', (e) => {
 });
 
 themeSelector.addEventListener('change', (e) => applyTheme(e.target.value));
+
+// 全局交互唤醒音频上下文，杜绝浏览器自动静音策略拦截
+window.addEventListener("pointerdown", () => SoundSystem.init(), { once: true });
+window.addEventListener("keydown", () => SoundSystem.init(), { once: true });
+
+// 结算弹窗按钮事件
+const winModal = document.getElementById("winModal");
+const winNextBtn = document.getElementById("winNextBtn");
+const winRestartBtn = document.getElementById("winRestartBtn");
+const winCloseBtn = document.getElementById("winCloseBtn");
+
+if (winNextBtn) {
+  winNextBtn.addEventListener("click", () => {
+    if (winModal) winModal.style.display = "none";
+    goToNextLevel();
+  });
+}
+if (winRestartBtn) {
+  winRestartBtn.addEventListener("click", () => {
+    if (winModal) winModal.style.display = "none";
+    newMaze();
+  });
+}
+if (winCloseBtn) {
+  winCloseBtn.addEventListener("click", () => {
+    if (winModal) winModal.style.display = "none";
+  });
+}
+if (winModal) {
+  winModal.addEventListener("click", (e) => {
+    if (e.target === winModal) winModal.style.display = "none";
+  });
+}
 
 // 初始化
 const savedTheme = localStorage.getItem('mazeTheme') || 'dark';

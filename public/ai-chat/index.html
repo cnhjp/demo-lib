@@ -9,7 +9,10 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; flex-direction: column; padding: 20px; }
         .chat-container { max-width: 800px; width: 100%; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); display: flex; flex-direction: column; height: 85vh; }
-        .chat-header { padding: 20px; background: #f8f9fa; border-bottom: 1px solid #e9ecef; border-radius: 10px 10px 0 0; text-align: center; }
+        .chat-header { padding: 14px 20px; background: #f8f9fa; border-bottom: 1px solid #e9ecef; border-radius: 10px 10px 0 0; display: flex; align-items: center; justify-content: space-between; }
+        .back-link { color: #4b5563; text-decoration: none; font-size: 0.8rem; font-weight: 600; padding: 0.35rem 0.65rem; border-radius: 9999px; background: #e5e7eb; border: 1px solid #d1d5db; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.25rem; line-height: 1; user-select: none; -webkit-tap-highlight-color: transparent; }
+        .back-link:hover { background: #d1d5db; color: #111827; }
+        @media (max-width: 640px) { body { padding: 0; } .chat-container { height: 100vh; height: 100dvh; border-radius: 0; box-shadow: none; } .chat-header { border-radius: 0; padding-top: calc(12px + env(safe-area-inset-top)); } .chat-input { border-radius: 0; padding-bottom: calc(16px + env(safe-area-inset-bottom)); } }
         .chat-header h1 { color: #333; font-size: 1.5rem; }
         .chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
         .message { max-width: 80%; padding: 12px 16px; border-radius: 18px; line-height: 1.5; position: relative; animation: fadeIn 0.3s ease-out; word-wrap: break-word; white-space: pre-wrap; }
@@ -36,7 +39,14 @@
 </head>
 <body>
     <div class="chat-container">
-        <div class="chat-header"><h1>AI 助手</h1></div>
+        <div class="chat-header">
+            <a href="/" class="back-link" title="返回展厅">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                <span>展厅</span>
+            </a>
+            <h1>AI 助手</h1>
+            <div style="width: 54px;"></div>
+        </div>
         <div class="chat-messages" id="chatMessages">
             <div class="message ai-message">你好！我是AI助手，有什么我可以帮你的吗？</div>
         </div>
@@ -176,11 +186,35 @@
                     }
                 }
             } catch (error) {
-                console.error('Fetch Error:', error);
-                const errorElement = document.createElement('div');
-                errorElement.className = 'message ai-message';
-                errorElement.textContent = '抱歉，网络或服务器出错了。';
-                chatMessages.appendChild(errorElement);
+                console.warn('API不可用，切换到演示打字机模式:', error);
+                if (!thinkingComponent) {
+                    thinkingComponent = document.createElement('div');
+                    thinkingComponent.className = 'message thinking-component';
+                    thinkingComponent.innerHTML = `
+                        <div class="thinking-header">
+                            <span>AI 思考中 (演示模式)</span>
+                            <span class="typing-indicator"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span>
+                        </div>
+                        <div class="thinking-steps"></div>`;
+                    chatMessages.appendChild(thinkingComponent);
+                    thinkingStepsContainer = thinkingComponent.querySelector('.thinking-steps');
+                }
+                const mockSteps = ['正在分析你的问题...', '正在组织回答内容...'];
+                for (const step of mockSteps) {
+                    const stepP = document.createElement('p');
+                    thinkingStepsContainer.appendChild(stepP);
+                    await typewriterEffect(stepP, `> ${step}`);
+                }
+                if (thinkingComponent) {
+                    thinkingComponent.querySelector('.thinking-header span').textContent = 'AI 思考过程 (离线演示)';
+                    const indicator = thinkingComponent.querySelector('.typing-indicator');
+                    if (indicator) indicator.remove();
+                }
+                const answerElement = document.createElement('div');
+                answerElement.className = 'message ai-message';
+                chatMessages.appendChild(answerElement);
+                const mockAnswer = `你好！当前处于静态托管或未启动 Node 后端环境，已自动切入打字机效果演示模式。\n\n你输入的内容是：“${message}”。\n\n打字机动画通过控制字符逐字追加与光标位移，带来流畅的实时交互体验。当运行本地 Node 后端服务时，即可体验完整的实时 SSE 流式通信！`;
+                await typewriterEffect(answerElement, mockAnswer);
                  // 出错时也要恢复UI
                 sendButton.disabled = false;
                 messageInput.disabled = false;

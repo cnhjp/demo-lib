@@ -10,15 +10,45 @@
   box-sizing: border-box;
 }
 
+.top-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border-bottom: 1px solid #ccc;
+  padding: 12px 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.back-link {
+  color: #4b5563;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.back-link:hover {
+  background: #e5e7eb;
+  color: #111827;
+}
+
 .btn-group {
   display: flex;
   justify-content: center;
-  padding: 20px;
-  border-bottom: 1px solid #ccc;
-}
-
-.btn-group > .btn:not(:last-of-type) {
-  margin-right: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .btn {

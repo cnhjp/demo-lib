@@ -12,35 +12,71 @@ const overlay = document.getElementById("spotlight-overlay");
       const dragThreshold = 40;
       const initialCordHeight = 40;
 
-      lightSwitch.addEventListener("mousedown", (e) => {
-        e.preventDefault();
+      function startPull(clientY) {
         isDragging = true;
         hasToggled = false;
-        startY = e.clientY;
+        startY = clientY;
         document.body.classList.add("grabbing");
         pullCord.style.transition = "none";
-      });
+      }
 
-      window.addEventListener("mousemove", (e) => {
-        if (isDragging) {
-          const deltaY = e.clientY - startY;
-          const pullDistance = Math.max(0, deltaY);
-          pullCord.style.height = `${initialCordHeight + pullDistance}px`;
-
-          if (pullDistance > dragThreshold && !hasToggled) {
-            toggleLight();
-            hasToggled = true;
-          }
-        }
-      });
-
-      window.addEventListener("mouseup", () => {
+      function movePull(clientY) {
         if (!isDragging) return;
+        const deltaY = clientY - startY;
+        const pullDistance = Math.max(0, deltaY);
+        pullCord.style.height = `${initialCordHeight + pullDistance}px`;
+
+        if (pullDistance > dragThreshold && !hasToggled) {
+          toggleLight();
+          hasToggled = true;
+        }
+      }
+
+      function endPull() {
+        if (!isDragging) return;
+        // 如果是轻触/点击且未拉到阈值，直接切换
+        if (!hasToggled) {
+          toggleLight();
+        }
         isDragging = false;
         document.body.classList.remove("grabbing");
         pullCord.style.transition = "height 0.1s ease-out";
         pullCord.style.height = `${initialCordHeight}px`;
+      }
+
+      // 鼠标事件
+      lightSwitch.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        startPull(e.clientY);
       });
+
+      window.addEventListener("mousemove", (e) => {
+        if (isDragging) {
+          movePull(e.clientY);
+        }
+      });
+
+      window.addEventListener("mouseup", endPull);
+
+      // 移动端 Touch 事件
+      lightSwitch.addEventListener("touchstart", (e) => {
+        if (e.cancelable) e.preventDefault();
+        startPull(e.touches[0].clientY);
+      }, { passive: false });
+
+      window.addEventListener("touchmove", (e) => {
+        if (isDragging) {
+          if (e.cancelable) e.preventDefault();
+          movePull(e.touches[0].clientY);
+        }
+        const touch = e.touches[0];
+        window.requestAnimationFrame(() => {
+          overlay.style.setProperty("--x", `${touch.clientX}px`);
+          overlay.style.setProperty("--y", `${touch.clientY}px`);
+        });
+      }, { passive: false });
+
+      window.addEventListener("touchend", endPull);
 
       function toggleLight() {
         isLightOn = !isLightOn;

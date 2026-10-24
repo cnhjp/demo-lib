@@ -19,17 +19,23 @@
         <!-- Particle Container -->
         <div id="particle-container" class="absolute top-0 left-0 w-full h-full pointer-events-none z-10"></div>
 
-        <!-- Season Buttons -->
-        <div class="absolute top-4 left-4 z-20 flex gap-2">
-            <button class="season-btn p-2 rounded-full bg-pink-300/70" data-season="spring">🌸</button>
-            <button class="season-btn p-2 rounded-full bg-yellow-300/70" data-season="summer">☀️</button>
-            <button class="season-btn p-2 rounded-full bg-orange-400/70" data-season="autumn">🍁</button>
-            <button class="season-btn p-2 rounded-full bg-blue-300/70 active" data-season="winter">❄️</button>
+        <!-- Top Nav & Season Buttons -->
+        <div class="top-nav-bar absolute top-4 left-4 z-20 flex items-center gap-2 sm:gap-3">
+            <a href="/" class="back-link" title="返回展厅">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                <span>展厅</span>
+            </a>
+            <div class="season-buttons-group flex gap-1.5 sm:gap-2">
+                <button class="season-btn p-2 rounded-full bg-pink-300/70" data-season="spring" aria-label="Spring">🌸</button>
+                <button class="season-btn p-2 rounded-full bg-yellow-300/70" data-season="summer" aria-label="Summer">☀️</button>
+                <button class="season-btn p-2 rounded-full bg-orange-400/70" data-season="autumn" aria-label="Autumn">🍁</button>
+                <button class="season-btn p-2 rounded-full bg-blue-300/70 active" data-season="winter" aria-label="Winter">❄️</button>
+            </div>
         </div>
 
-        <!-- Holiday Message -->
-        <div class="absolute top-5 left-1/2 -translate-x-1/2 z-20 text-center">
-            <h1 id="title-text" class="title-font text-4xl md:text-5xl text-white">Happy Winter!</h1>
+        <!-- Holiday Message (pointer-events-none to prevent blocking clicks) -->
+        <div class="holiday-title-container absolute top-5 left-1/2 -translate-x-1/2 z-20 text-center pointer-events-none">
+            <h1 id="title-text" class="title-font text-4xl md:text-5xl text-white select-none">Happy Winter!</h1>
         </div>
 
         <!-- Main Scene for Dropping Items -->
@@ -40,18 +46,18 @@
         </div>
 
         <!-- Sticker Palette & Controls -->
-        <div class="absolute bottom-4 inset-x-0 flex flex-col items-center gap-4 z-30">
+        <div class="bottom-controls-container absolute bottom-4 inset-x-0 flex flex-col items-center gap-3 sm:gap-4 z-30">
             <div class="w-full max-w-xs sm:max-w-sm md:max-w-md">
                 <div class="palette flex items-center gap-3 p-3 rounded-full">
                     <!-- Palette items will be dynamically added here -->
                 </div>
             </div>
              <!-- Control Buttons -->
-            <div class="flex gap-4">
-                <button id="generate-btn" class="control-btn text-white font-semibold py-2 px-4 rounded-full">Generate</button>
-                <button id="reshuffle-btn" class="control-btn text-white font-semibold py-2 px-4 rounded-full">Reshuffle</button>
-                <button id="reset-btn" class="control-btn text-white font-semibold py-2 px-4 rounded-full">Reset</button>
-                <button id="clear-all-btn" class="control-btn text-white font-semibold py-2 px-4 rounded-full">Clear All</button>
+            <div class="flex flex-wrap justify-center gap-2 sm:gap-4 px-2">
+                <button id="generate-btn" class="control-btn text-white font-semibold py-1.5 sm:py-2 px-3 sm:px-4 text-xs sm:text-base rounded-full">Generate</button>
+                <button id="reshuffle-btn" class="control-btn text-white font-semibold py-1.5 sm:py-2 px-3 sm:px-4 text-xs sm:text-base rounded-full">Reshuffle</button>
+                <button id="reset-btn" class="control-btn text-white font-semibold py-1.5 sm:py-2 px-3 sm:px-4 text-xs sm:text-base rounded-full">Reset</button>
+                <button id="clear-all-btn" class="control-btn text-white font-semibold py-1.5 sm:py-2 px-3 sm:px-4 text-xs sm:text-base rounded-full">Clear All</button>
             </div>
         </div>
         

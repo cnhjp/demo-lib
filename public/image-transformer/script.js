@@ -40,6 +40,7 @@ const originalBox = document.getElementById("originalBox");
 const rotatedBox = document.getElementById("rotatedBox");
 
 let currentImg = null;
+let currentBlobUrl = null;
 let state = { rotation: 0, flipH: 1, flipV: 1, zoom: 1 };
 let cameraStream = null;
 let sourceMode = "none";
@@ -56,11 +57,11 @@ captureBtn.addEventListener("click", captureFromCamera);
 function handleFile(file) {
   if (!file || !file.type.startsWith("image/")) return;
   stopCamera();
-  const reader = new FileReader();
-  reader.onload = e => {
-    loadImageSource(e.target.result);
-  };
-  reader.readAsDataURL(file);
+  if (currentBlobUrl) {
+    URL.revokeObjectURL(currentBlobUrl);
+  }
+  currentBlobUrl = URL.createObjectURL(file);
+  loadImageSource(currentBlobUrl);
 }
 
 function loadImageSource(dataUrl) {
@@ -234,4 +235,7 @@ function syncCanvasFromCamera() {
   ctx.drawImage(rotatedCameraPreview, 0, 0);
 }
 
-window.addEventListener("beforeunload", stopCamera);
+window.addEventListener("beforeunload", () => {
+  stopCamera();
+  if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+});

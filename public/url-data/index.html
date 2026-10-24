@@ -17,6 +17,12 @@
   <body>
     <div class="page">
       <header class="hero">
+        <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 1.25rem;">
+          <a href="/" class="back-link" title="返回展厅">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            <span>展厅</span>
+          </a>
+        </div>
         <p class="eyebrow">URL DATA TOOLKIT</p>
         <h1>把文本装进链接里</h1>
         <p class="subtitle">
@@ -76,22 +82,36 @@
           }
         }
 
+        function showToast(message, isError = false) {
+          let toast = document.getElementById("toast");
+          if (!toast) {
+            toast = document.createElement("div");
+            toast.id = "toast";
+            toast.className = "toast";
+            document.body.appendChild(toast);
+          }
+          toast.textContent = message;
+          toast.classList.toggle("toast-error", isError);
+          toast.classList.add("toast-show");
+          setTimeout(() => toast.classList.remove("toast-show"), 2500);
+        }
+
         const updateHashAndCopy = async () => {
           try {
             const code = codeEl.value;
             const codeStr = LZString.compressToEncodedURIComponent(code);
             window.location.hash = `code/${codeStr}`;
             await navigator.clipboard.writeText(window.location.href);
-            alert("已复制到剪贴板");
+            showToast("✓ 已复制链接到剪贴板");
           } catch (error) {
             console.error("复制失败:", error);
-            alert("复制失败，请手动复制地址栏链接");
+            showToast("复制失败，请手动复制地址栏", true);
           }
         };
 
-        // 监听 Ctrl+S，将内容压缩后写入 hash 并复制链接
+        // 监听 Ctrl+S / Cmd+S，将内容压缩后写入 hash 并复制链接
         codeEl.addEventListener("keydown", async (e) => {
-          if (e.ctrlKey && e.key === "s") {
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
             e.preventDefault();
             await updateHashAndCopy();
           }

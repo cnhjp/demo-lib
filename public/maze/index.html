@@ -14,13 +14,21 @@
 <body>
   <div class="game-container">
     <header>
-      <h1>Escape the Maze — Treasure Hunt</h1>
-      <p class="subtitle">箭头键/WASD 移动。在夺宝模式中，收集钥匙，躲避守卫，逃离迷宫！</p>
+      <div class="header-top">
+        <a href="/" class="back-link" title="返回展厅">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          <span>展厅</span>
+        </a>
+        <h1>Escape the Maze — Treasure Hunt</h1>
+      </div>
+      <p class="subtitle">
+        <span class="desktop-tip">箭头键/WASD 移动。在夺宝模式中，收集钥匙，躲避守卫，逃离迷宫！</span>
+        <span class="mobile-tip">触控十字键移动，收集钥匙，躲避守卫，逃离迷宫！</span>
+      </p>
     </header>
     <div class="main-content">
       <div class="maze-area">
         <canvas id="maze" width="600" height="600" tabindex="0" aria-label="Maze canvas"></canvas>
-        <div id="game-over-overlay" class="game-over-message"></div>
         <div class="touch-controls">
           <div class="pad" data-m="u">↑</div>
           <div class="pad" data-m="l">←</div>
@@ -98,18 +106,55 @@
 
         <div class="control-group">
             <div class="label">操作</div>
-            <div style="display: flex; flex-wrap: wrap; gap: 0.75rem;">
+            <div class="actions-grid">
                 <button id="newBtn" class="btn">重新开始</button>
                 <button id="nextLevelBtn" class="btn" style="display: none;">下一关</button>
+                <button id="autoWalkBtn" class="btn secondary">自动走路</button>
                 <button id="toggleBtn" class="btn secondary">显示答案</button>
                 <button id="pauseBtn" class="btn secondary">暂停</button>
                 <button id="undoBtn" class="btn secondary">撤销一步</button>
                 <button id="demoBtn" class="btn secondary">演示解法</button>
+                <button id="soundBtn" class="btn secondary">🔊 音效: 开</button>
                 <button id="historyBtn" class="btn secondary">历史记录</button>
             </div>
         </div>
 
         <div id="status"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 结算弹窗 (全屏遮罩居中) -->
+  <div id="winModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content win-modal-content">
+      <div class="modal-header" style="justify-content: center; border-bottom: none; padding-bottom: 0;">
+        <h2 id="winModalTitle" style="font-size: 1.8rem; margin: 0; color: var(--accent);">🎉 挑战成功！</h2>
+      </div>
+      <div class="modal-body" style="text-align: center; padding: 1.25rem 1rem;">
+        <p id="winModalSubtitle" style="color: var(--muted); margin-top: 0; margin-bottom: 1.25rem; font-size: 0.95rem;">恭喜你顺利逃离迷宫！</p>
+        <div class="win-stats-grid">
+          <div class="win-stat-card">
+            <div class="win-stat-label">模式难度</div>
+            <div id="winMode" class="win-stat-value" style="font-size: 1.05rem;">经典 (普通)</div>
+          </div>
+          <div class="win-stat-card">
+            <div class="win-stat-label">通关用时</div>
+            <div id="winTime" class="win-stat-value">00:00.000</div>
+          </div>
+          <div class="win-stat-card">
+            <div class="win-stat-label">走动步数</div>
+            <div id="winMoves" class="win-stat-value">0</div>
+          </div>
+          <div class="win-stat-card" id="winShortestCard">
+            <div class="win-stat-label">最短路径</div>
+            <div id="winShortest" class="win-stat-value">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer win-modal-footer">
+        <button id="winNextBtn" class="btn">下一关</button>
+        <button id="winRestartBtn" class="btn secondary">再来一局</button>
+        <button id="winCloseBtn" class="btn secondary">关闭</button>
       </div>
     </div>
   </div>

@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const seasonButtons = document.querySelectorAll('.season-btn');
 
             let isMuted = false;
+            let isPaletteScrolling = false;
             let draggedItem = null;
             let offsetX, offsetY;
             let isUpdatePending = false;
@@ -156,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     particle.style.height = `${size}px`;
                 }
 
-                particle.style.left = `${Math.random() * 100}vw`;
+                particle.style.left = `${Math.random() * 100}%`;
                 const duration = Math.random() * 5 + 7;
                 particle.style.animationDuration = `${duration}s`;
                 particle.style.animationDelay = `${Math.random() * 7}s`;
@@ -192,6 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 clearAllItems();
                 palette.innerHTML = '';
 
+                let isDraggingHTML5 = false;
                 seasonData.palette.forEach(type => {
                     const stickerDiv = document.createElement('div');
                     stickerDiv.className = "sticker w-10 h-10 flex-shrink-0 bg-white/20 rounded-full p-1";
@@ -199,9 +201,56 @@ document.addEventListener('DOMContentLoaded', () => {
                     stickerDiv.dataset.type = type;
                     stickerDiv.innerHTML = svgAssets[type];
                     palette.appendChild(stickerDiv);
+
+                    // PC Drag & Drop
                     stickerDiv.addEventListener('dragstart', (e) => {
+                        isDraggingHTML5 = true;
                         e.dataTransfer.setData('text/plain', stickerDiv.dataset.type);
                         e.dataTransfer.effectAllowed = 'copy';
+                    });
+                    stickerDiv.addEventListener('dragend', () => {
+                        setTimeout(() => { isDraggingHTML5 = false; }, 100);
+                    });
+
+                    // PC Click to Add
+                    stickerDiv.addEventListener('click', () => {
+                        if (!isDraggingHTML5 && !isPaletteScrolling) {
+                            createItemAt(type);
+                        }
+                    });
+
+                    // Mobile / H5 Touch Drag & Tap
+                    let touchStartX = 0;
+                    let touchStartY = 0;
+                    let touchSpawned = false;
+
+                    stickerDiv.addEventListener('touchstart', (e) => {
+                        const touch = e.touches[0];
+                        touchStartX = touch.clientX;
+                        touchStartY = touch.clientY;
+                        touchSpawned = false;
+                    }, { passive: true });
+
+                    stickerDiv.addEventListener('touchmove', (e) => {
+                        if (touchSpawned) return;
+                        const touch = e.touches[0];
+                        const dx = touch.clientX - touchStartX;
+                        const dy = touch.clientY - touchStartY;
+                        // Dragged upward towards scene or moved significantly
+                        if (dy < -15 || Math.abs(dx) > 25) {
+                            touchSpawned = true;
+                            if (e.cancelable) e.preventDefault();
+                            const newItem = createItemAt(type, touch.clientX, touch.clientY);
+                            if (newItem) {
+                                startDrag(newItem, e);
+                            }
+                        }
+                    }, { passive: false });
+
+                    stickerDiv.addEventListener('touchend', (e) => {
+                        if (!touchSpawned) {
+                            createItemAt(type);
+                        }
                     });
                 });
 
@@ -286,13 +335,50 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             // --- Drag and Drop Logic ---
+            function createItemAt(type, clientX, clientY) {
+                const originalSticker = document.querySelector(`.palette .sticker[data-type="${type}"]`);
+                if (!originalSticker) return null;
+
+                const newItem = originalSticker.cloneNode(true);
+                newItem.classList.remove('w-10', 'h-10', 'bg-white/20', 'rounded-full', 'p-1');
+                newItem.classList.add('scene-item');
+                newItem.style.width = '80px';
+                newItem.draggable = false;
+
+                const sceneRect = scene.getBoundingClientRect();
+                let x, y;
+                if (clientX !== undefined && clientY !== undefined) {
+                    x = clientX - sceneRect.left - 40;
+                    y = clientY - sceneRect.top - 40;
+                } else {
+                    // Center in scene with gentle random jitter
+                    x = (sceneRect.width - 80) / 2 + (Math.random() * 60 - 30);
+                    y = (sceneRect.height - 80) / 2 + (Math.random() * 60 - 30);
+                }
+                x = Math.max(0, Math.min(x, sceneRect.width - 80));
+                y = Math.max(0, Math.min(y, sceneRect.height - 80));
+
+                newItem.style.left = `${x}px`;
+                newItem.style.top = `${y}px`;
+
+                scene.appendChild(newItem);
+                playSound(type);
+                newItem.classList.add('shaking');
+                setTimeout(() => newItem.classList.remove('shaking'), 500);
+
+                addSceneItemListeners(newItem);
+                return newItem;
+            }
+
             function startDrag(item, event) {
-                event.preventDefault();
+                if (event.cancelable) event.preventDefault();
                 draggedItem = item;
                 const touch = event.touches ? event.touches[0] : event;
                 const rect = draggedItem.getBoundingClientRect();
                 offsetX = touch.clientX - rect.left;
                 offsetY = touch.clientY - rect.top;
+                if (isNaN(offsetX) || offsetX < 0 || offsetX > rect.width) offsetX = rect.width / 2 || 40;
+                if (isNaN(offsetY) || offsetY < 0 || offsetY > rect.height) offsetY = rect.height / 2 || 40;
                 draggedItem.classList.add('dragging');
             }
 
@@ -305,33 +391,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.preventDefault();
                 const type = e.dataTransfer.getData('text/plain').trim();
                 if (!type) return;
-
-                const originalSticker = document.querySelector(`.palette .sticker[data-type="${type}"]`);
-                if (!originalSticker) return;
-
-                const newItem = originalSticker.cloneNode(true);
-                newItem.classList.remove('w-10', 'h-10', 'bg-white/20', 'rounded-full', 'p-1');
-                newItem.classList.add('scene-item');
-                newItem.style.width = '80px';
-                newItem.draggable = false;
-
-                const sceneRect = scene.getBoundingClientRect();
-                newItem.style.left = `${e.clientX - sceneRect.left - 40}px`;
-                newItem.style.top = `${e.clientY - sceneRect.top - 40}px`;
-
-                scene.appendChild(newItem);
-                
-                playSound(type);
-                newItem.classList.add('shaking');
-                setTimeout(() => newItem.classList.remove('shaking'), 500);
-
-                addSceneItemListeners(newItem);
+                createItemAt(type, e.clientX, e.clientY);
             });
 
             function addSceneItemListeners(item) {
                 item.draggable = false;
                 item.addEventListener('mousedown', (e) => startDrag(item, e));
-                item.addEventListener('touchstart', (e) => startDrag(item, e));
+                item.addEventListener('touchstart', (e) => startDrag(item, e), { passive: false });
                 item.addEventListener('wheel', (e) => {
                     e.preventDefault();
                     const scaleAmount = 5;
@@ -450,6 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             palette.addEventListener('mousedown', (e) => {
                 isDown = true;
+                isPaletteScrolling = false;
                 palette.classList.add('active');
                 startX = e.pageX - palette.offsetLeft;
                 scrollLeft = palette.scrollLeft;
@@ -461,6 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.preventDefault();
                 const x = e.pageX - palette.offsetLeft;
                 const walk = (x - startX) * 2;
+                if (Math.abs(walk) > 5) isPaletteScrolling = true;
                 palette.scrollLeft = scrollLeft - walk;
             });
             palette.addEventListener('wheel', (e) => { e.preventDefault(); palette.scrollLeft += e.deltaY; });

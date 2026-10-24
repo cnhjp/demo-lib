@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
     <base href="/virtual-list-scroll/" />
     <link rel="stylesheet" href="style.css" />
     <title>虚拟列表滚动 | Demo</title>
@@ -11,11 +12,17 @@
   <body>
     <div class="page">
       <header class="header">
-        <div>
-          <h1>虚拟列表滚动</h1>
-          <p class="subtitle">
-            将 Vue/Vite 版虚拟列表 Demo 翻译为原生 HTML/CSS/JS，包含固定高度与动态高度实现。
-          </p>
+        <div style="display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+          <a href="/" class="back-link" title="返回展厅">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            <span>展厅</span>
+          </a>
+          <div>
+            <h1>虚拟列表滚动</h1>
+            <p class="subtitle">
+              将 Vue/Vite 版虚拟列表 Demo 翻译为原生 HTML/CSS/JS，包含固定高度与动态高度实现。
+            </p>
+          </div>
         </div>
         <div class="meta">渲染策略：普通列表 / scroll / observer / 动态高度</div>
       </header>
